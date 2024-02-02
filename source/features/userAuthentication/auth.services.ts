@@ -10,8 +10,7 @@ async function createUser({username, password}: {username: string, password: str
 
 
     //here we hash the password,
-
-    // return new userModel().save()
+    
 
     
 
