@@ -24,7 +24,15 @@ async function signupController(req: Request, res: Response, next: NextFunction)
                 console.log(`error caught on model: ${err}`)
             }
 
-            res.status(500).send(`My bad :) timestamp: ${Date.now.toString()}`)
+
+            //handle for username_unavailable errors
+            
+            if (err.message === "username_unavailable"){
+
+            }else {
+            res.status(500).send(`My bad :) timestamp: ${new Date(Date.now()).toDateString()}`)
+
+            }
         })
 
     } else {
