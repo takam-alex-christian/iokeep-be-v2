@@ -1,10 +1,16 @@
 
 import dotenv from "dotenv"
 
-import connectMongoDb from "./source/config/db"
+import expressApp from "./source/app"
+
+import {port} from "./source/config/config"
 
 dotenv.config()
 
-connectMongoDb();
 
-console.log("mongo db")
+
+expressApp.listen(port, ()=>{
+    if (process.env.NODE_ENV === "development"){
+        console.log(`server live on port ${port}`)
+    }
+})
