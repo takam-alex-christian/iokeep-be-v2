@@ -80,8 +80,6 @@ async function createUser({ username, password }: { username: string, password: 
     })
 
 
-
-
     if (process.env.NODE_ENV === 'development') {
         console.log(`createUser called time: ${new Date(Date.now()).toISOString()}`)
     }

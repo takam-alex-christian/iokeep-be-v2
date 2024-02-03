@@ -10,7 +10,10 @@ async function loginController(req: Request, res: Response, next: NextFunction) 
         //handle auth
         
         await authUser({username: req.body.username, password: req.body.password}).then((authed)=>{
-            res.status(200).send("user logged in")
+            
+            res.status(200)
+
+            res.send(authed)
         })
 
     }else {
