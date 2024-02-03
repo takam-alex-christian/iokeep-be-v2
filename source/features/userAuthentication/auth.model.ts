@@ -13,6 +13,10 @@ const userSchema = new Schema({
     },
     username: String,
     password: String,
+    refreshTokens: {
+        type: [String],
+        default: []
+    },
     creationDate: {
         type: Date,
         default: () => new Date(Date.now())
