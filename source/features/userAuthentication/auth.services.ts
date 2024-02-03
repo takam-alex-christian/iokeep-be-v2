@@ -1,5 +1,5 @@
 
-import { hash } from 'bcrypt'
+import { hash, compare } from 'bcrypt'
 
 import UserModel from "./auth.model"
 
@@ -10,6 +10,36 @@ async function doesUsernameExist({ username }: { username: string }): Promise<bo
             if (userDoc) resolve(true)
             else resolve(false)
         }).catch((err) => {
+            reject(err)
+        })
+    })
+}
+
+async function authUser({ username, password }: { username: string, password: string }): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+        UserModel.findOne({ username }).then(async (userDoc) => {
+            if (userDoc) {
+                //user found
+
+                //compare password
+
+                if (userDoc.password) {
+                    await compare(password, userDoc.password).then((passwordMatch)=>{
+                        resolve(passwordMatch)
+                    })
+                } else {
+                    // handle for empty userDoc.password
+                    // or update for schema password type
+                    reject(new Error("My Bad ;)"))
+                }
+
+
+            } else {
+                //handler for user not found
+                reject(new Error("user_not_found"))
+            }
+        }, (err) => {
+            //handle for dbms error
             reject(err)
         })
     })
@@ -40,10 +70,10 @@ async function createUser({ username, password }: { username: string, password: 
                     if (process.env.NODE_ENV === 'development') {
                         console.log(`error while hashing user password, for more info-> ${err}`);
                     }
-                    
+
                     return createUserReject(err)
                 })
-                
+
             } else {
                 createUserReject(new Error("username_unavailable"))
             }
@@ -63,4 +93,4 @@ async function createUser({ username, password }: { username: string, password: 
     return createUserPromise
 }
 
-export { createUser }
+export { createUser, authUser}
