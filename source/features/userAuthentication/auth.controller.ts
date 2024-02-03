@@ -9,11 +9,15 @@ async function loginController(req: Request, res: Response, next: NextFunction) 
     if (req.body.username && req.body.password){
         //handle auth
         
-        await authUser({username: req.body.username, password: req.body.password}).then((authed)=>{
-            
+        await authUser({username: req.body.username, password: req.body.password}).then(({authed, authToken})=>{ //authObject is of type authed: bool, authToken: string
             res.status(200)
 
-            res.send(authed)
+            if (authed){
+                res.json({authed, authToken})
+            }else {
+                res.json({authed})
+            }
+
         })
 
     }else {

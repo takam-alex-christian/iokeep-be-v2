@@ -1,7 +1,11 @@
 
 import { hash, compare } from 'bcrypt'
+import jwt from 'jsonwebtoken'
+
+import {authTokenAlgo, authTokenKey} from "../../config/tokenConfig"
 
 import UserModel from "./auth.model"
+
 
 
 async function doesUsernameExist({ username }: { username: string }): Promise<boolean> {
@@ -15,14 +19,22 @@ async function doesUsernameExist({ username }: { username: string }): Promise<bo
     })
 }
 
-async function authUser({ username, password }: { username: string, password: string }): Promise<boolean> {
+async function authUser({ username, password }: { username: string, password: string }): Promise<{authed: boolean, authToken: string}> {
     return new Promise((resolve, reject) => {
         UserModel.findOne({ username }).then(async (userDoc) => {
             if (userDoc) { // user found
 
                 if (userDoc.password) {
                     await compare(password, userDoc.password).then((passwordMatch)=>{ //compare plaintext password and encrypted password
-                        resolve(passwordMatch)
+
+                        //generate the authToken here
+                        const authToken= jwt.sign({
+                            username
+                        }, authTokenKey, {
+                            algorithm: authTokenAlgo
+                        })
+
+                        resolve({authed: passwordMatch, authToken })
                     })
                 } else {
                     // handle for empty userDoc.password
