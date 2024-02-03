@@ -1,7 +1,7 @@
 
 import { Request, Response, NextFunction } from "express"
 
-import { createUser, authUser } from "./auth.services"
+import { createUser, authUser} from "./auth.services"
 
 
 
@@ -10,10 +10,17 @@ async function loginController(req: Request, res: Response, next: NextFunction) 
         //handle auth
         
         await authUser({username: req.body.username, password: req.body.password}).then(({authed, authToken})=>{ //authObject is of type authed: bool, authToken: string
+            
             res.status(200)
 
             if (authed){
-                res.json({authed, authToken})
+                //set cookie on receiving end with jwt auth_token
+                res.cookie('auth_token', authToken, {
+                    httpOnly: true,
+                    domain: "localhost",
+                })
+
+                res.json({authed})
             }else {
                 res.json({authed})
             }
@@ -34,7 +41,8 @@ async function signupController(req: Request, res: Response, next: NextFunction)
 
             if (userDocument) {
                 // user successfully created
-                res.status(201).send("new user created") // if status is 201, we send a json with user token to the user
+                res.status(201).send({success: true}) // if status is 201, we send a json with user token to the user
+                
             }
         }, (err) => {
             // what to do if there's an error

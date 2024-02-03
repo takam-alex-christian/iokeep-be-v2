@@ -33,8 +33,6 @@ async function authUser({ username, password }: { username: string, password: st
                             algorithm: 'HS256'
                         })
 
-                        console.log(process.env.USER_AUTH_KEY)
-
                         resolve({authed: passwordMatch, authToken })
                     })
                 } else {

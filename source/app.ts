@@ -2,6 +2,7 @@
 import express, { Application } from "express"
 
 import bodyParser from "body-parser";
+import cookieParser from "cookie-parser"
 
 
 import connectDB from "./config/db"
@@ -14,7 +15,6 @@ import { auth } from "./features/userAuthentication"
 const expressApp: Application = express()
 
 
-
 //connect db
 connectDB();
 
@@ -24,6 +24,8 @@ expressApp.use(bodyParser.urlencoded({extended: false}))
 //parse application/json
 expressApp.use(bodyParser.json())
 
+//cookie parser
+expressApp.use(cookieParser())
 
 //use features routers
 expressApp.use("/auth", auth)
