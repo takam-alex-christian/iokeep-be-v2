@@ -1,34 +1,61 @@
 
 import { Request, Response, NextFunction } from "express"
 
-import { createUser, authUser} from "./auth.services"
+import { createUser, authUser, getAccessToken} from "./auth.services"
 
 
+function getAccessTokenController(req: Request, res: Response){
+
+    if(req.cookies["refresh_token"]){
+        getAccessToken({refreshToken: req.cookies["refresh_token"]}).then(({accessToken})=>{
+            // console.log("entered here")
+            res.status(200)
+            
+            res.cookie("access_token", accessToken, {
+                httpOnly: true
+            })
+            
+            res.end()
+            
+            
+        }, (err)=>{
+            //handle error
+            
+        })
+    }else {
+        res.status(403).send("no access token")
+    }
+}
 
 async function loginController(req: Request, res: Response, next: NextFunction) {
     if (req.body.username && req.body.password){
         //handle auth
         
-        await authUser({username: req.body.username, password: req.body.password}).then(({authed, authToken})=>{ //authObject is of type authed: bool, authToken: string
+        await authUser({username: req.body.username, password: req.body.password}).then(({authed, accessToken, refreshToken})=>{ //authObject is of type authed: bool, authToken: string
             
             res.status(200)
 
             if (authed){
                 //set cookie on receiving end with jwt auth_token
-                res.cookie('auth_token', authToken, {
+                res.cookie('access_token', accessToken, {
                     httpOnly: true,
-                    domain: "localhost",
+                    // domain: "localhost",
                 })
 
-                res.json({authed})
+                res.cookie('refresh_token', refreshToken, {
+                    httpOnly: true
+                })
+
+
+                return res.json({authed})
             }else {
-                res.json({authed})
+                return res.json({authed})
             }
 
         })
 
     }else {
-        res.status(400).send("Bad Request! ")
+        return res.status(400).send("Bad Request! ")
     }
 }
 
@@ -72,4 +99,4 @@ async function signupController(req: Request, res: Response, next: NextFunction)
 }
 
 
-export { loginController, signupController }
+export { loginController, signupController, getAccessTokenController}
