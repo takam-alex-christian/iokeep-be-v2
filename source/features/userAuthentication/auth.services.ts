@@ -18,18 +18,15 @@ async function doesUsernameExist({ username }: { username: string }): Promise<bo
 async function authUser({ username, password }: { username: string, password: string }): Promise<boolean> {
     return new Promise((resolve, reject) => {
         UserModel.findOne({ username }).then(async (userDoc) => {
-            if (userDoc) {
-                //user found
-
-                //compare password
+            if (userDoc) { // user found
 
                 if (userDoc.password) {
-                    await compare(password, userDoc.password).then((passwordMatch)=>{
+                    await compare(password, userDoc.password).then((passwordMatch)=>{ //compare plaintext password and encrypted password
                         resolve(passwordMatch)
                     })
                 } else {
                     // handle for empty userDoc.password
-                    // or update for schema password type
+                    // or update for schema password type to 
                     reject(new Error("My Bad ;)"))
                 }
 
