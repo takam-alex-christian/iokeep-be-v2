@@ -18,22 +18,52 @@ async function doesUsernameExist({ username }: { username: string }): Promise<bo
     })
 }
 
-async function authUser({ username, password }: { username: string, password: string }): Promise<{authed: boolean, authToken: string}> {
+async function authUser({ username, password }: { username: string, password: string }): Promise<{ authed: boolean, accessToken: string, refreshToken: string }> {
     return new Promise((resolve, reject) => {
         UserModel.findOne({ username }).then(async (userDoc) => {
             if (userDoc) { // user found
 
                 if (userDoc.password) {
-                    await compare(password, userDoc.password).then((passwordMatch)=>{ //compare plaintext password and encrypted password
+                    await compare(password, userDoc.password).then((passwordMatch) => { //compare plaintext password and encrypted password
 
                         //generate the authToken here
-                        const authToken= jwt.sign({
-                            username
-                        }, process.env.USER_AUTH_KEY || '', {
-                            algorithm: 'HS256'
-                        })
 
-                        resolve({authed: passwordMatch, authToken })
+                        if (process.env.USER_REFRESH_AUTH_KEY) {
+                            const refreshToken = jwt.sign({
+                                userId: userDoc._id
+                            }, process.env.USER_REFRESH_AUTH_KEY, { algorithm: 'HS256' })
+
+                            //save the refresh token to db
+
+                            userDoc.refreshTokens.push(refreshToken)
+
+                            userDoc.save().then(() => {
+                                //handle refreshToken saved
+
+                                if (process.env.USER_AUTH_KEY) {
+
+                                    const accessToken = jwt.sign({
+                                        userId: userDoc._id
+                                    }, process.env.USER_AUTH_KEY, {
+                                        algorithm: 'HS256'
+                                    })
+
+                                    resolve({ authed: passwordMatch, accessToken, refreshToken })
+
+                                } else {
+                                    reject(new Error("process.env.USER_AUTH_KEY null "))
+                                }
+
+                            }, (err) => {
+                                //handle save refreshToken error
+                                reject(err);
+                            })
+
+                        } else {
+                            reject(new Error("process.env.USER_REFRESH_AUTH_KEY not defined or null"))
+                        }
+
+
                     })
                 } else {
                     // handle for empty userDoc.password
@@ -50,6 +80,60 @@ async function authUser({ username, password }: { username: string, password: st
             //handle for dbms error
             reject(err)
         })
+    })
+}
+
+function getAccessToken({ refreshToken }: { refreshToken: string }): Promise<{ accessToken: string }> {
+    return new Promise((getAccessTokenResolve, getAccessTokenReject) => {
+
+        if (process.env.USER_REFRESH_AUTH_KEY) {
+
+            jwt.verify(refreshToken, process.env.USER_REFRESH_AUTH_KEY, (err, decodedPayload) => {
+                if (!err) {
+
+                    //@ts-ignore
+                    UserModel.findOne({ _id: decodedPayload?.userId }).then((userDoc) => {
+
+                        if (userDoc) {
+
+                            if (userDoc.refreshTokens.includes(refreshToken)) {
+                                //generate and return a new access_token
+
+                                jwt.sign({userId: userDoc._id}, process.env.USER_AUTH_KEY!, {algorithm: "HS256", expiresIn: "10m"}, (err, accessToken)=>{
+                                    if (!err && accessToken){
+                                        return getAccessTokenResolve({ accessToken: accessToken})
+                                    }else {
+                                        return getAccessTokenReject(err)
+                                    }
+                                })
+                            } else {
+                                //non existing refresh token
+                                //handle error
+                                console.log("invalid refresh token, login please")
+                            }
+
+
+
+                        } else {
+                            return getAccessTokenReject(new Error("No user with this _id"))
+                        }
+
+                    }, (err) => {
+                        return getAccessTokenReject(err);
+                    })
+
+
+
+                } else {
+                    //handle for verify errors
+                    return getAccessTokenReject(err)
+                }
+            })
+
+        } else {
+            return getAccessTokenReject(new Error("process.env.USER_REFRESH_AUTH_KEY is undefined | null"))
+        }
+
     })
 }
 
@@ -99,4 +183,4 @@ async function createUser({ username, password }: { username: string, password: 
     return createUserPromise
 }
 
-export { createUser, authUser}
+export { createUser, authUser, getAccessToken }
