@@ -2,7 +2,6 @@
 import { hash, compare } from 'bcrypt'
 import jwt from 'jsonwebtoken'
 
-import {authTokenAlgo, authTokenKey} from "../../config/tokenConfig"
 
 import UserModel from "./auth.model"
 
@@ -30,9 +29,11 @@ async function authUser({ username, password }: { username: string, password: st
                         //generate the authToken here
                         const authToken= jwt.sign({
                             username
-                        }, authTokenKey, {
-                            algorithm: authTokenAlgo
+                        }, process.env.USER_AUTH_KEY || '', {
+                            algorithm: 'HS256'
                         })
+
+                        console.log(process.env.USER_AUTH_KEY)
 
                         resolve({authed: passwordMatch, authToken })
                     })
