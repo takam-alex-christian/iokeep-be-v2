@@ -10,6 +10,8 @@ import connectDB from "./config/db"
 // import features
 import { auth } from "./features/userAuthentication"
 
+import { folderManager } from "./features/folderManager";
+
 //init express app
 
 const expressApp: Application = express()
@@ -29,5 +31,7 @@ expressApp.use(cookieParser())
 
 //use features routers
 expressApp.use("/auth", auth)
+
+expressApp.use("/folders",folderManager )
 
 export default expressApp
