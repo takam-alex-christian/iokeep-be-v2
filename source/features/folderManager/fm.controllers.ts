@@ -3,9 +3,9 @@ import { Request, Response, NextFunction } from "express";
 
 import { verify } from "jsonwebtoken";
 
-import { createFolder, readFolders} from "./fm.services";
+import { createFolder, readFolders } from "./fm.services";
 
-import {user_auth_key} from '../../config/config'
+import { user_auth_key } from '../../config/config'
 
 
 
@@ -19,42 +19,20 @@ function createFolderController(req: Request, res: Response, next: NextFunction)
 
         if (req.body.folderName) {
 
-            if (process.env.USER_AUTH_KEY) {// make sure USER_AUTH_KEY exists
+            // we crreate the folder
+            createFolder({ ownerId: res.locals.userId, folderName: req.body.folderName }).then((folderDoc) => {
 
-                // verify token 
-                //@ts-ignore
-                verify(req.cookies["access_token"], process.env.USER_AUTH_KEY, (err, decodedPayload) => {
-                    if (!err) {
-                        // decodedPayload contains userId
+                //handle success
+                res.status(201).json({
+                    ...folderDoc
+                }).end()
 
-                        // we crreate the folder
-                        //@ts-ignore
-                        createFolder({ownerId: decodedPayload!.userId, folderName: req.body.folderName}).then((folderDoc)=>{
-                            
-                            //handle success
-                            res.status(201).json({
-                                ...folderDoc
-                            }).end()
+            }, (err) => {
+                res.status(500).send("Server Error :(").end()
+                console.log(err)
+            })
 
-                        }, (err)=>{
-                            res.status(500).send("Server Error :(").end()
-                            console.log(err)
-                        })
-
-
-                    } else {
-                        //perhaps token is unverified
-                        res.status(500).send(err).end()
-                    }
-                })
-
-            } else {
-                //handle for process.env
-                res.status(500).send("Server Error").end()
-                throw new Error("env variable not found")
-
-            }
-        }else {
+        } else {
             res.status(400).send("Bad Request").end()
         }
 
@@ -67,33 +45,17 @@ function createFolderController(req: Request, res: Response, next: NextFunction)
 }
 
 
-function readFoldersController(req: Request, res: Response){
-
-    if (req.cookies['access_token']){
+function readFoldersController(req: Request, res: Response) {
 
 
-        //@ts-ignore
-        verify(req.cookies["access_token"], user_auth_key, (err, decodedPayload)=>{
-            if (!err){
-                
-                if (decodedPayload.userId){
+    readFolders({ ownerId: res.locals.userId }).then((folderDocs) => {
+        res.send(JSON.stringify({ folderDocs }))
 
-                    readFolders({ownerId: decodedPayload.userId}).then((folderDocs)=>{
-                        res.send(JSON.stringify({folderDocs})).end()
-                    }).catch(()=>{
-                        res.sendStatus(500)
-                    })
+    }, (err) => {
+        res.sendStatus(500)
+    })
 
-                }else res.sendStatus(403)
-
-            }else res.sendStatus(401)
-        })
-        
-
-    }else {
-        res.sendStatus(400)
-    }
 
 }
 
-export { createFolderController, readFoldersController}
+export { createFolderController, readFoldersController }
