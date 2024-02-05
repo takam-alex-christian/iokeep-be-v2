@@ -23,7 +23,7 @@ function createFolder({ ownerId, folderName }: { ownerId: string, folderName: st
 
                 new FolderModel({ ownerId, folderName }).save().then((folderDoc) => {
 
-                    createFolderResolve({ folderId: folderDoc._id.toString()})
+                    createFolderResolve({ folderId: folderDoc._id.toString() })
                     // console.log("got here though ?")
 
                 }, (err) => { // mongoose error
@@ -43,16 +43,39 @@ function createFolder({ ownerId, folderName }: { ownerId: string, folderName: st
 }
 
 //get folders by ownerId
-function readFolders({ownerId}: {ownerId: string}): Promise<any>{
-    return new Promise((readFoldersResolve, readFoldersReject)=>{
+function readFolders({ ownerId }: { ownerId: string }): Promise<any> {
+    return new Promise((readFoldersResolve, readFoldersReject) => {
 
-        FolderModel.find({ownerId}).then((folderDocs)=>{
+        FolderModel.find({ ownerId }).then((folderDocs) => {
             readFoldersResolve(folderDocs)
-        }, (err)=>{
+        }, (err) => {
             readFoldersReject(err)
         })
 
     })
 }
 
-export { createFolder, readFolders}
+//update folder 
+function updateFolder(folderId: string, folderUpdateOptions: { folderName?: string, lastModifiedDate?: Date, lastOpenedDate?: Date }): Promise<boolean> {
+    return new Promise((updateFolderResolve, updateFolderReject) => {
+        //
+        FolderModel.findByIdAndUpdate(folderId, { ...folderUpdateOptions }).then((folderDoc) => {
+            if (folderDoc) {
+
+                updateFolderResolve(true)
+
+            } else updateFolderReject(new Error("Folder with provided id doesn\'t exist "))
+        }, (err) => {
+            updateFolderReject(err)
+        })
+    })
+}
+
+//delete folderById
+function deleteFolder({ folderId }: { folderId: string }): Promise<any> {
+    return new Promise((deleteFolderResolve, deleteFolderReject) => {
+        //
+    })
+}
+
+export { createFolder, readFolders, updateFolder}
