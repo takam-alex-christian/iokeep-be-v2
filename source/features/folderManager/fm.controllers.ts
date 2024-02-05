@@ -3,7 +3,9 @@ import { Request, Response, NextFunction } from "express";
 
 import { verify } from "jsonwebtoken";
 
-import { createFolder } from "./fm.services";
+import { createFolder, readFolders} from "./fm.services";
+
+import {user_auth_key} from '../../config/config'
 
 
 
@@ -65,4 +67,33 @@ function createFolderController(req: Request, res: Response, next: NextFunction)
 }
 
 
-export { createFolderController}
+function readFoldersController(req: Request, res: Response){
+
+    if (req.cookies['access_token']){
+
+
+        //@ts-ignore
+        verify(req.cookies["access_token"], user_auth_key, (err, decodedPayload)=>{
+            if (!err){
+                
+                if (decodedPayload.userId){
+
+                    readFolders({ownerId: decodedPayload.userId}).then((folderDocs)=>{
+                        res.send(JSON.stringify({folderDocs})).end()
+                    }).catch(()=>{
+                        res.sendStatus(500)
+                    })
+
+                }else res.sendStatus(403)
+
+            }else res.sendStatus(401)
+        })
+        
+
+    }else {
+        res.sendStatus(400)
+    }
+
+}
+
+export { createFolderController, readFoldersController}
