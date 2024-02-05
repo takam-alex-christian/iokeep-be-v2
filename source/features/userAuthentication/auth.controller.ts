@@ -47,11 +47,13 @@ async function loginController(req: Request, res: Response, next: NextFunction) 
                 })
 
 
-                return res.json({authed})
+                res.json({authed}).end()
             }else {
-                return res.json({authed})
+                res.json({authed})
             }
 
+        }).catch((err)=>{
+            res.status(403).send(err)
         })
 
     }else {
