@@ -43,7 +43,7 @@ function createFolder({ ownerId, folderName }: { ownerId: string, folderName: st
 }
 
 //get folders by ownerId
-function readFolders({ownerId}: {ownerId: string}){
+function readFolders({ownerId}: {ownerId: string}): Promise<any>{
     return new Promise((readFoldersResolve, readFoldersReject)=>{
 
         FolderModel.find({ownerId}).then((folderDocs)=>{
@@ -55,4 +55,4 @@ function readFolders({ownerId}: {ownerId: string}){
     })
 }
 
-export { createFolder }
+export { createFolder, readFolders}
