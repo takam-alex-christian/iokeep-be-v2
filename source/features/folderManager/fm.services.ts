@@ -72,10 +72,28 @@ function updateFolder(folderId: string, folderUpdateOptions: { folderName?: stri
 }
 
 //delete folderById
-function deleteFolder({ folderId }: { folderId: string }): Promise<any> {
+function deleteFolder(folderId: string): Promise<boolean> {
     return new Promise((deleteFolderResolve, deleteFolderReject) => {
-        //
+
+        FolderModel.findById(folderId).then((folderDoc)=>{
+            if (folderDoc){
+                folderDoc.deleteOne().then((deleteResult)=>{
+                    deleteFolderResolve(deleteResult.acknowledged)
+                }, (err)=>{
+                    deleteFolderReject(err)
+                })
+            }else {
+                deleteFolderReject(new Error("folder_does_not_exist"))
+            }
+        }, (err)=>{
+            deleteFolderReject(err)
+        })
+        FolderModel.findByIdAndDelete(folderId).then((folderDoc)=>{
+            deleteFolderResolve(true)
+        }, (err)=>{
+            deleteFolderReject(err)
+        })
     })
 }
 
-export { createFolder, readFolders, updateFolder}
+export { createFolder, readFolders, updateFolder, deleteFolder}
