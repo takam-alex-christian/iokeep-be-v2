@@ -16,7 +16,7 @@ const folderSchema = new Schema({
     },
     folderName: {
         type: String,
-        require: true,
+        required: true,
 
     },
     creationDate: { //as soon as the folder is created, provide this
