@@ -34,12 +34,12 @@ function readNotes(folderId: string): Promise<Array<any>> {
     })
 }
 
-function readNoteEditorState(noteId: string): Promise<string> { //returns editorState string
+function readNote(noteId: string): Promise<any> { //returns editorState string
     //
     return new Promise((readNoteRsolve, readNoteReject) => {
         NoteModel.findById(noteId).then((noteDoc) => {
             if (noteDoc) {
-                readNoteRsolve(noteDoc.editorState)
+                readNoteRsolve(noteDoc)
             } else {
                 readNoteReject(new Error("inexistent noteId"))
             }
@@ -50,6 +50,28 @@ function readNoteEditorState(noteId: string): Promise<string> { //returns editor
 }
 
 //function to update editorState
+function updateNote(noteId: string, editorState: string): Promise<boolean>{
+    return new Promise ((updateNoteResolve, updateNoteReject)=>{
+        
+        NoteModel.findById(noteId).then((noteDoc)=>{
+            if (noteDoc){
+                noteDoc.editorState = editorState;
+                noteDoc.lastModifiedDate = new Date();
+
+                noteDoc.save().then(()=>{
+                    updateNoteResolve(true)
+                }, (err)=>{
+                    updateNoteReject(err)
+                })
+                
+            }else {
+                updateNoteReject(new Error("no note exist with this noteId"))
+            }
+        }, (err)=>{
+            updateNoteReject(err)
+        })
+    })
+}
 
 function deleteNote(noteId: string): Promise<boolean>{
     return new Promise((deleteNoteResolve, deleteNoteReject) => {
@@ -70,4 +92,4 @@ function deleteNote(noteId: string): Promise<boolean>{
     })
 }
 
-export { createNote, readNotes, deleteNote}
+export { createNote, readNotes, readNote, updateNote,deleteNote}
