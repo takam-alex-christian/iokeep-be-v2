@@ -1,7 +1,7 @@
 
 import { Request, Response, NextFunction } from "express";
 
-import { createNote, readNotes } from "./nm.services";
+import { createNote, readNotes, readNote, deleteNote } from "./nm.services";
 
 
 function createNoteController(req: Request, res: Response){
@@ -34,6 +34,33 @@ function readNotesController(req: Request, res: Response){
     }else {
         res.sendStatus(400)
     }
+
+    //validate folder if
+    //handle wrong folder id
+
+}
+
+function readNoteController(req: Request, res: Response){
+    //req.params.noteId
+    if (req.params.noteId){
+
+        readNote(req.params.noteId).then((noteDoc)=>{
+            res.status(200).json({noteDoc})
+        }, (err)=>{
+            res.sendStatus(500)
+            console.log(err)
+        })
+    }else {
+        res.status(400).json({error: {message: `Bad Request! \n hint: notes/noteId`}})
+    }
+}
+
+function updateNoteController(){
     
 }
-export {createNoteController, readNotesController}
+
+function deleteNoteController(req: Request, res: Response){
+
+}
+
+export {createNoteController, readNotesController, readNoteController, }
