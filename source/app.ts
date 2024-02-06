@@ -12,6 +12,8 @@ import { auth } from "./features/userAuthentication"
 
 import { folderManager } from "./features/folderManager";
 
+import { noteManager } from "./features/noteManager";
+
 //init express app
 
 const expressApp: Application = express()
@@ -33,5 +35,7 @@ expressApp.use(cookieParser())
 expressApp.use("/auth", auth)
 
 expressApp.use("/folders",folderManager )
+
+expressApp.use("/notes", noteManager)
 
 export default expressApp
