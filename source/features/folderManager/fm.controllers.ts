@@ -3,7 +3,7 @@ import { Request, Response, NextFunction } from "express";
 
 import { verify } from "jsonwebtoken";
 
-import { createFolder, readFolders, updateFolder } from "./fm.services";
+import { createFolder, readFolders, updateFolder, deleteFolder} from "./fm.services";
 
 import { user_auth_key } from '../../config/config'
 
@@ -72,12 +72,26 @@ function updateFolderController(req: Request, res: Response) {
             console.log(err)
             res.sendStatus(500)
         })
-        
+
+    }else {
+        res.sendStatus(400)
+    }
+}
+
+function deleteFolderController(req: Request, res: Response){
+    if (req.params.folderId){
+       
+        deleteFolder(req.params.folderId).then((deleted)=>{
+            res.status(200).json({deleted})
+        }, (err)=>{
+            console.log(err)
+            res.sendStatus(500)
+        })
+    
     }else {
         res.sendStatus(400)
     }
 }
 
 
-
-export { createFolderController, readFoldersController, updateFolderController }
+export { createFolderController, readFoldersController, updateFolderController, deleteFolderController}
