@@ -18,19 +18,19 @@ const noteSchema = new Schema({
     creationDate: {
         type: Date,
         default: ()=>{
-            return Date.now()
+            return new Date()
         }
     },
     lastOpenedDate: {
         type: Date,
         default: ()=>{
-            return Date.now()
+            return new Date()
         }
     },
     lastModifiedDate: {
         type: Date,
         default: ()=>{
-            return Date.now()
+            return new Date()
         }
     },
     editorState: { 
