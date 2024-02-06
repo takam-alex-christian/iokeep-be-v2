@@ -22,11 +22,11 @@ function createNote(folderId: string, editorState: string): Promise<string>{
     })
 }
 
-function readNotes(folderId: string): Promise<[any]>{
+function readNotes(folderId: string): Promise<Array<any>>{
     return new Promise((readNotesResolve, readNotesReject)=>{
 
         NoteModel.find({folderId}).then((notes)=>{
-            readNotesResolve([notes])
+            readNotesResolve(notes)
         }, (err)=>{
             readNotesReject(err)
         })
