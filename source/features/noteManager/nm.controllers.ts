@@ -18,7 +18,22 @@ function createNoteController(req: Request, res: Response){
     }
 }
 
-function readNotesController(){
+function readNotesController(req: Request, res: Response){
+    // req.query.folderId
 
+    if (req.query.folderId){
+
+        readNotes(req.query.folderId as string).then((noteDocs)=>{
+            
+            res.status(200).json({notes: noteDocs})
+
+        }, (err)=>{
+            res.sendStatus(500)
+            console.log(err)
+        })
+    }else {
+        res.sendStatus(400)
+    }
+    
 }
-export {createNoteController}
+export {createNoteController, readNotesController}
