@@ -126,7 +126,8 @@ async function signupController(req: Request, res: Response, next: NextFunction)
 function logoutController(req: Request, res: Response){
     console.log(res.locals.userId)
     logoutService(res.locals.userId, req.cookies["refresh_token"]).then((success)=>{
-        res.status(200).json({
+        
+        res.status(200).clearCookie("access_token").json({
             loggedOut: success
         })
     }).catch((err)=>{
