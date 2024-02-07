@@ -19,10 +19,14 @@ function getAccessTokenController(req: Request, res: Response) {
 
             res.end()
 
-
         }, (err) => {
             //handle error
+            res.status(200).json({
+                error: true,
+                errorMessage: "Login please!"
+            })
 
+            console.log(err)
         })
     } else {
         res.status(403).send("no access token")
