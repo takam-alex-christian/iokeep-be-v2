@@ -2,6 +2,7 @@
 import { hash, compare } from 'bcrypt'
 import jwt from 'jsonwebtoken'
 
+import { user_auth_key, user_refresh_auth_key } from '../../config/config'
 
 import UserModel from "./auth.model"
 
@@ -28,41 +29,36 @@ async function authUser({ username, password }: { username: string, password: st
 
                         //generate the authToken here
 
-                        if (process.env.USER_REFRESH_AUTH_KEY) {
-                            const refreshToken = jwt.sign({
-                                userId: userDoc._id
-                            }, process.env.USER_REFRESH_AUTH_KEY, { algorithm: 'HS256' })
 
-                            //save the refresh token to db
+                        jwt.sign({
+                            userId: userDoc._id
+                        }, user_refresh_auth_key, { algorithm: 'HS256' }, (err, refreshToken) => {
+                            if (!err) {
+                                //save the refresh token to db
 
-                            userDoc.refreshTokens.push(refreshToken)
+                                userDoc.refreshTokens.push(refreshToken!)
 
-                            userDoc.save().then(() => {
-                                //handle refreshToken saved
+                                userDoc.save().then(() => {
+                                    //handle refreshToken saved
 
-                                if (process.env.USER_AUTH_KEY) {
+                                        const accessToken = jwt.sign({
+                                            userId: userDoc._id
+                                        }, user_auth_key, {
+                                            algorithm: 'HS256'
+                                        })
 
-                                    const accessToken = jwt.sign({
-                                        userId: userDoc._id
-                                    }, process.env.USER_AUTH_KEY, {
-                                        algorithm: 'HS256'
-                                    })
+                                        resolve({ authed: passwordMatch, accessToken, refreshToken: refreshToken! })
 
-                                    resolve({ authed: passwordMatch, accessToken, refreshToken })
+                                }, (err) => {
+                                    //handle save refreshToken error
+                                    reject(err);
+                                })
 
-                                } else {
-                                    reject(new Error("process.env.USER_AUTH_KEY null "))
-                                }
 
-                            }, (err) => {
-                                //handle save refreshToken error
-                                reject(err);
-                            })
-
-                        } else {
-                            reject(new Error("process.env.USER_REFRESH_AUTH_KEY not defined or null"))
-                        }
-
+                            } else {
+                                reject(err)
+                            }
+                        })
 
                     })
                 } else {
@@ -99,10 +95,10 @@ function getAccessToken({ refreshToken }: { refreshToken: string }): Promise<{ a
                             if (userDoc.refreshTokens.includes(refreshToken)) {
                                 //generate and return a new access_token
 
-                                jwt.sign({userId: userDoc._id}, process.env.USER_AUTH_KEY!, {algorithm: "HS256", expiresIn: "10m"}, (err, accessToken)=>{
-                                    if (!err && accessToken){
-                                        return getAccessTokenResolve({ accessToken: accessToken})
-                                    }else {
+                                jwt.sign({ userId: userDoc._id }, process.env.USER_AUTH_KEY!, { algorithm: "HS256", expiresIn: "10m" }, (err, accessToken) => {
+                                    if (!err && accessToken) {
+                                        return getAccessTokenResolve({ accessToken: accessToken })
+                                    } else {
                                         return getAccessTokenReject(err)
                                     }
                                 })
