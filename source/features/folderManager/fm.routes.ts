@@ -1,19 +1,21 @@
 
 import { createFolderController, deleteFolderController, readFoldersController, updateFolderController } from "./fm.controllers";
-import {checkAccessToken} from './fm.middlewares'
+import { checkAccessToken } from "../../customMiddleware/checkAccessToken";
 
 import { Router } from "express";
 
 const fmRouter = Router()
 
+fmRouter.use(checkAccessToken)
 
-fmRouter.post("/", checkAccessToken, createFolderController);
 
-fmRouter.get("/", checkAccessToken, readFoldersController);
+fmRouter.post("/", createFolderController);
 
-fmRouter.patch("/:folderId", checkAccessToken, updateFolderController);
+fmRouter.get("/", readFoldersController);
 
-fmRouter.delete("/:folderId", checkAccessToken, deleteFolderController);
+fmRouter.patch("/:folderId", updateFolderController);
+
+fmRouter.delete("/:folderId", deleteFolderController);
 
 
 export default fmRouter
