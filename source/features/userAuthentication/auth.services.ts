@@ -82,53 +82,48 @@ async function authUser({ username, password }: { username: string, password: st
 function getAccessToken({ refreshToken }: { refreshToken: string }): Promise<{ accessToken: string }> {
     return new Promise((getAccessTokenResolve, getAccessTokenReject) => {
 
-        if (process.env.USER_REFRESH_AUTH_KEY) {
 
-            jwt.verify(refreshToken, process.env.USER_REFRESH_AUTH_KEY, (err, decodedPayload) => {
-                if (!err) {
+        jwt.verify(refreshToken, user_refresh_auth_key, (err, decodedPayload) => {
+            if (!err) {
 
-                    //@ts-ignore
-                    UserModel.findOne({ _id: decodedPayload?.userId }).then((userDoc) => {
+                //@ts-ignore
+                UserModel.findOne({ _id: decodedPayload?.userId }).then((userDoc) => {
 
-                        if (userDoc) {
+                    if (userDoc) {
 
-                            if (userDoc.refreshTokens.includes(refreshToken)) {
-                                //generate and return a new access_token
+                        if (userDoc.refreshTokens.includes(refreshToken)) {
+                            //generate and return a new access_token
 
-                                jwt.sign({ userId: userDoc._id }, process.env.USER_AUTH_KEY!, { algorithm: "HS256", expiresIn: "10m" }, (err, accessToken) => {
-                                    if (!err && accessToken) {
-                                        return getAccessTokenResolve({ accessToken: accessToken })
-                                    } else {
-                                        return getAccessTokenReject(err)
-                                    }
-                                })
-                            } else {
-                                //non existing refresh token
-                                //handle error
-                                console.log("invalid refresh token, login please")
-                                                            }
-
-
-
+                            jwt.sign({ userId: userDoc._id }, process.env.USER_AUTH_KEY!, { algorithm: "HS256", expiresIn: "10m" }, (err, accessToken) => {
+                                if (!err && accessToken) {
+                                    return getAccessTokenResolve({ accessToken: accessToken })
+                                } else {
+                                    return getAccessTokenReject(err)
+                                }
+                            })
                         } else {
-                            return getAccessTokenReject(new Error("No user with this _id"))
+                            //non existing refresh token
+                            //handle error
+                            // console.log("invalid refresh token, login please")
+                            getAccessTokenReject(new Error("invalidated"))
                         }
 
-                    }, (err) => {
-                        return getAccessTokenReject(err);
-                    })
 
 
+                    } else {
+                        return getAccessTokenReject(new Error("No user with this _id"))
+                    }
 
-                } else {
-                    //handle for verify errors
-                    return getAccessTokenReject(err)
-                }
-            })
+                }, (err) => {
+                    return getAccessTokenReject(err);
+                })
 
-        } else {
-            return getAccessTokenReject(new Error("process.env.USER_REFRESH_AUTH_KEY is undefined | null"))
-        }
+            } else {
+                //handle for verify errors
+                return getAccessTokenReject(err)
+            }
+        })
+
 
     })
 }
@@ -179,26 +174,26 @@ async function createUser({ username, password }: { username: string, password: 
     return createUserPromise
 }
 
-function logoutService(userId: string, refreshToken: string): Promise<boolean>{
+function logoutService(userId: string, refreshToken: string): Promise<boolean> {
     return new Promise((logoutResolve, logoutReject) => {
 
         UserModel.findById(userId).then((userDoc) => {
-            if (userDoc){
+            if (userDoc) {
 
-                userDoc.refreshTokens = userDoc.refreshTokens.filter((eachToken)=>{
+                userDoc.refreshTokens = userDoc.refreshTokens.filter((eachToken) => {
                     return refreshToken != eachToken
                 })
 
-                userDoc.save().then(()=>{
+                userDoc.save().then(() => {
                     logoutResolve(true)
-                }, (err)=>{
+                }, (err) => {
                     logoutReject(err)
                 })
 
-            }else {
+            } else {
                 logoutReject(new Error("no_matching_user"))
             }
-            
+
         }, (err) => {
             logoutReject(err)
         })
@@ -206,4 +201,4 @@ function logoutService(userId: string, refreshToken: string): Promise<boolean>{
 
 }
 
-export { createUser, authUser, getAccessToken, logoutService}
+export { createUser, authUser, getAccessToken, logoutService }
