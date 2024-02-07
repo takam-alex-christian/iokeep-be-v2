@@ -37,7 +37,7 @@ function verifyAccessTokenController(req: Request, res: Response) {
                 res.status(200).json({ verified: true})
             } else {
                 console.log(err)
-                res.status(200).json({ verified: false, error: true, errorMessage: "Error while verifying access_token" })
+                res.status(200).json({ verified: false})
             }
         })
         
