@@ -41,13 +41,13 @@ async function authUser({ username, password }: { username: string, password: st
                                 userDoc.save().then(() => {
                                     //handle refreshToken saved
 
-                                        const accessToken = jwt.sign({
-                                            userId: userDoc._id
-                                        }, user_auth_key, {
-                                            algorithm: 'HS256'
-                                        })
+                                    const accessToken = jwt.sign({
+                                        userId: userDoc._id
+                                    }, user_auth_key, {
+                                        algorithm: 'HS256'
+                                    })
 
-                                        resolve({ authed: passwordMatch, accessToken, refreshToken: refreshToken! })
+                                    resolve({ authed: passwordMatch, accessToken, refreshToken: refreshToken! })
 
                                 }, (err) => {
                                     //handle save refreshToken error
@@ -106,7 +106,7 @@ function getAccessToken({ refreshToken }: { refreshToken: string }): Promise<{ a
                                 //non existing refresh token
                                 //handle error
                                 console.log("invalid refresh token, login please")
-                            }
+                                                            }
 
 
 
@@ -179,4 +179,31 @@ async function createUser({ username, password }: { username: string, password: 
     return createUserPromise
 }
 
-export { createUser, authUser, getAccessToken }
+function logoutService(userId: string, refreshToken: string): Promise<boolean>{
+    return new Promise((logoutResolve, logoutReject) => {
+
+        UserModel.findById(userId).then((userDoc) => {
+            if (userDoc){
+
+                userDoc.refreshTokens = userDoc.refreshTokens.filter((eachToken)=>{
+                    return refreshToken != eachToken
+                })
+
+                userDoc.save().then(()=>{
+                    logoutResolve(true)
+                }, (err)=>{
+                    logoutReject(err)
+                })
+
+            }else {
+                logoutReject(new Error("no_matching_user"))
+            }
+            
+        }, (err) => {
+            logoutReject(err)
+        })
+    })
+
+}
+
+export { createUser, authUser, getAccessToken, logoutService}
