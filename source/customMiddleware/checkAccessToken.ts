@@ -9,8 +9,6 @@ import {user_auth_key} from '../config/config';
 function checkAccessToken(req: Request, res: Response, next: NextFunction){
     if (req.cookies["access_token"]){
 
-        console.log("we have and access_token thought")
-
         //@ts-ignore
         verify(req.cookies["access_token"], user_auth_key, (err, decodedPayload)=>{
             if (!err){
@@ -24,14 +22,15 @@ function checkAccessToken(req: Request, res: Response, next: NextFunction){
                 }
 
             }else {
-                res.sendStatus(500).end()
+                res.status(500).json({error: true, message: "invalid token"}).end()
+                console.log(err)
 
             }
             
         })
 
     }else {
-        res.sendStatus(400)
+        res.status(401).json({error: true, message: "Login first"}).end()
     }
 }
 
