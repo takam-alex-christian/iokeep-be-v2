@@ -1,7 +1,7 @@
 
 import { Request, Response, NextFunction } from "express"
 
-import { createUser, authUser, getAccessToken, } from "./auth.services"
+import { createUser, authUser, getAccessToken, logoutService, } from "./auth.services"
 import { JsonWebTokenError, verify } from "jsonwebtoken"
 import { user_auth_key } from "../../config/config"
 
@@ -119,5 +119,28 @@ async function signupController(req: Request, res: Response, next: NextFunction)
 
 }
 
+function logoutController(req: Request, res: Response){
+    console.log(res.locals.userId)
+    logoutService(res.locals.userId, req.cookies["refresh_token"]).then((success)=>{
+        res.status(200).json({
+            loggedOut: success
+        })
+    }).catch((err)=>{
+        console.log(err)
 
-export { loginController, signupController, getAccessTokenController, verifyAccessTokenController }
+        if (err.message == "no_matching_user"){
+            res.status(200).json({
+                error: true,
+                errorMessage: "no Matching user"
+            })
+        }else {
+            res.status(500).json({
+                error: true,
+                errorMessage: "Internal Server Error!"
+            })
+        }
+        
+    })
+}
+
+export { loginController, signupController, getAccessTokenController, verifyAccessTokenController, logoutController}
