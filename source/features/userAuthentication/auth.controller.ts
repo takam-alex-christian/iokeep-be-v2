@@ -3,7 +3,7 @@ import { Request, Response, NextFunction } from "express"
 
 import { createUser, authUser, getAccessToken, logoutService, } from "./auth.services"
 import { JsonWebTokenError, verify } from "jsonwebtoken"
-import { user_auth_key } from "../../config/config"
+import { user_auth_key, user_refresh_auth_key } from "../../config/config"
 
 
 function getAccessTokenController(req: Request, res: Response) {
@@ -37,6 +37,23 @@ function verifyAccessTokenController(req: Request, res: Response) {
     if (req.cookies["access_token"]) {
         
         verify(req.cookies["access_token"], user_auth_key, ( err: any) => {
+            if (!err) {
+                res.status(200).json({ verified: true})
+            } else {
+                console.log(err)
+                res.status(200).json({ verified: false})
+            }
+        })
+        
+    } else {
+        res.status(400).json({ error: true, errorMessage: "no access_token found" })
+    }
+}
+
+function verifyRefreshTokenController(req: Request, res: Response){
+    if (req.cookies["refresh_token"]) {
+        
+        verify(req.cookies["refresh_token"], user_refresh_auth_key, ( err: any) => {
             if (!err) {
                 res.status(200).json({ verified: true})
             } else {
@@ -148,4 +165,4 @@ function logoutController(req: Request, res: Response){
     })
 }
 
-export { loginController, signupController, getAccessTokenController, verifyAccessTokenController, logoutController}
+export { loginController, signupController, getAccessTokenController, verifyAccessTokenController, verifyRefreshTokenController, logoutController}
