@@ -174,7 +174,7 @@ async function createUser({ username, password }: { username: string, password: 
     return createUserPromise
 }
 
-function verifyRefreshToken(refreshToken: string ): Promise<{isVerified: boolean, isValid: boolean}> {
+function verifyRefreshToken(refreshToken: string): Promise<{ isVerified: boolean, isValid: boolean }> {
     return new Promise((resolve, reject) => {
         let isValid = false
         let isVerified = false
@@ -182,22 +182,26 @@ function verifyRefreshToken(refreshToken: string ): Promise<{isVerified: boolean
         jwt.verify(refreshToken, user_refresh_auth_key, (err, decodedPayload: any) => {
             if (!err) {
 
-                //no check whether refresh_token is still usable
+
                 isVerified = true
 
                 UserModel.findById(decodedPayload.userId, 'refreshTokens').then((userDoc) => {
-                    
+
                     if (userDoc?.refreshTokens.includes(refreshToken)) isValid = true
 
-                    resolve({isVerified, isValid})
-                    
+                    resolve({ isVerified, isValid })
+
+
                 }, (err) => {
                     console.log(err)
                     reject(err)
+
                 })
 
             } else {
-                reject(err)
+                console.log(err)
+                resolve({ isVerified, isValid })
+                
             }
         })
     })
@@ -230,4 +234,4 @@ function logoutService(userId: string, refreshToken: string): Promise<boolean> {
 
 }
 
-export { createUser, authUser, getAccessToken, logoutService, verifyRefreshToken}
+export { createUser, authUser, getAccessToken, logoutService, verifyRefreshToken }
