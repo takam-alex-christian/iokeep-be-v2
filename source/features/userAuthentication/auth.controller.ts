@@ -1,7 +1,7 @@
 
 import { Request, Response, NextFunction } from "express"
 
-import { createUser, authUser, getAccessToken, logoutService, } from "./auth.services"
+import { createUser, authUser, getAccessToken, logoutService, verifyRefreshToken} from "./auth.services"
 import { JsonWebTokenError, verify } from "jsonwebtoken"
 import { user_auth_key, user_refresh_auth_key } from "../../config/config"
 
@@ -50,16 +50,22 @@ function verifyAccessTokenController(req: Request, res: Response) {
     }
 }
 
-function verifyRefreshTokenController(req: Request, res: Response){
-    if (req.cookies["refresh_token"]) {
+function authenticateRefreshTokenController(req: Request, res: Response){
+    // console.log(req.headers.authorization)
+
+    if (req.headers.authorization) {
         
-        verify(req.cookies["refresh_token"], user_refresh_auth_key, ( err: any) => {
-            if (!err) {
-                res.status(200).json({ verified: true})
-            } else {
-                console.log(err)
-                res.status(200).json({ verified: false})
-            }
+        
+        let refreshToken = req.headers.authorization.split(' ')[1]
+
+        verifyRefreshToken(refreshToken).then((outcome)=>{
+            res.json({...outcome})
+        }, (err)=>{
+            res.json({
+                isError: true,
+                errorMessage: "Failed to process token"
+            })
+            console.log(err)
         })
         
     } else {
@@ -165,4 +171,4 @@ function logoutController(req: Request, res: Response){
     })
 }
 
-export { loginController, signupController, getAccessTokenController, verifyAccessTokenController, verifyRefreshTokenController, logoutController}
+export { loginController, signupController, getAccessTokenController, verifyAccessTokenController, authenticateRefreshTokenController, logoutController}
