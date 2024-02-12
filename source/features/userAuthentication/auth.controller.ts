@@ -4,6 +4,7 @@ import { Request, Response, NextFunction } from "express"
 import { createUser, authUser, getAccessToken, logoutService, verifyRefreshToken} from "./auth.services"
 import { JsonWebTokenError, verify } from "jsonwebtoken"
 import { user_auth_key, user_refresh_auth_key } from "../../config/config"
+import { AuthJsonResponse } from "./types"
 
 
 function getAccessTokenController(req: Request, res: Response) {
@@ -110,38 +111,53 @@ async function loginController(req: Request, res: Response, next: NextFunction) 
 
 async function signupController(req: Request, res: Response, next: NextFunction) {
 
+    const jsonResponse: AuthJsonResponse = {
+        success: false,
+        error: null,
+        timeStamp: Date.now()
+    }
+
     if (req.body.username && req.body.password) {
 
         await createUser({ username: req.body.username, password: req.body.password }).then((userDocument) => {
 
             if (userDocument) {
                 // user successfully created
-                res.status(201).send({ success: true }) // if status is 201, we send a json with user token to the user
-
+                jsonResponse.success = true
+                
             }
+
         }, (err) => {
             // what to do if there's an error
             if (process.env.NODE_ENV === "development") {
-                console.log(`error caught on model: ${err}`)
+                console.log(err)
             }
 
             //handle for username_unavailable errors
 
             if (err.message === "username_unavailable") {
-                res.status(200).send("username unavailable")
+                jsonResponse.error = {message: err.message}
+                
             } else {
-                res.status(500).send(`My bad :) timestamp: ${new Date(Date.now()).toDateString()}`)
+                res.status(500)
+
+                jsonResponse.error = {
+                    message: "Server Error"
+                }
             }
         })
 
+
     } else {
 
-        if (process.env.NODE_ENV === "development") {
-            console.log("username and password not provided")
-        }
+        jsonResponse.error = { message: "Bad Request! username and or password not provided"}
+        jsonResponse.timeStamp = Date.now()
 
-        res.status(400).send("")
+        res.status(400)
     }
+
+
+    res.json(jsonResponse)
 
 
 }
