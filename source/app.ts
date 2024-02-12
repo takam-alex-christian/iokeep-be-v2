@@ -1,5 +1,5 @@
 
-import express, { Application } from "express"
+import express, { Application, Request, Response} from "express"
 
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser"
@@ -37,5 +37,17 @@ expressApp.use("/auth", auth)
 expressApp.use("/folders",folderManager )
 
 expressApp.use("/notes", noteManager)
+
+
+//handle for non implemented routes and methods
+expressApp.get("*", (req: Request, res: Response)=>{
+    res.sendStatus(404)
+})
+
+expressApp.all("*", (req: Request, res: Response)=>{
+    res.sendStatus(405)
+})
+
+
 
 export default expressApp
