@@ -2,6 +2,7 @@
 
 type AuthJsonResponse = {
     success: boolean,
+    info: string, // predominantly to inform the user
     error: {
         message: string,
     } | null
