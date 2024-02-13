@@ -32,7 +32,7 @@ async function getAccessTokenController(req: Request, res: Response) {
             jsonResponse.error = {message: err.message}
             console.log(err)
         })
-        
+
     } else {
         res.status(403)
         jsonResponse.error = {message: "No Refresh Token"}
@@ -203,29 +203,36 @@ async function signupController(req: Request, res: Response, next: NextFunction)
 
 }
 
-function logoutController(req: Request, res: Response) {
-    console.log(res.locals.userId)
-    logoutService(res.locals.userId, req.cookies["refresh_token"]).then((success) => {
+async function logoutController(req: Request, res: Response) {
 
-        res.status(200).clearCookie("access_token").json({
-            loggedOut: success
-        })
+    const jsonResponse: AuthJsonResponse = {
+        success: false,
+        info: "",
+        error: null,
+        timeStamp: Date.now()
+    }
+
+    await logoutService(res.locals.userId, req.cookies["refresh_token"]).then((success) => {
+
+        res.status(200).clearCookie("access_token")
+        jsonResponse.success = success
+
     }).catch((err) => {
         console.log(err)
 
         if (err.message == "no_matching_user") {
-            res.status(200).json({
-                error: true,
-                errorMessage: "no Matching user"
-            })
+            jsonResponse.info = "No Matching user"
         } else {
-            res.status(500).json({
-                error: true,
-                errorMessage: "Internal Server Error!"
-            })
+            
+            jsonResponse.error = {
+                message: "Internal Server Error! please try again"
+            }
+
         }
 
     })
+
+    res.json(jsonResponse)
 }
 
 export { loginController, signupController, getAccessTokenController, verifyAccessTokenController, authenticateRefreshTokenController, logoutController }
