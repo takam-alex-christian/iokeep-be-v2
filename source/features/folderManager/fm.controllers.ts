@@ -1,97 +1,133 @@
 
 import { Request, Response, NextFunction } from "express";
 
-import { verify } from "jsonwebtoken";
+import { createFolder, readFolders, updateFolder, deleteFolder } from "./fm.services";
 
-import { createFolder, readFolders, updateFolder, deleteFolder} from "./fm.services";
-
-import { user_auth_key } from '../../config/config'
+import { CreateFolderJsonResponse, ReadFoldersJsonResponse, GenericFolderJsonResponse } from "./types";
 
 
 
-function createFolderController(req: Request, res: Response, next: NextFunction) {
+async function createFolderController(req: Request, res: Response, next: NextFunction) {
 
-    //if access_token cookie exist
-
-    if (req.cookies["access_token"]) {
-
-        // verify expected userJson Data exist
-
-        if (req.body.folderName) {
-
-            // we crreate the folder
-            createFolder({ ownerId: res.locals.userId, folderName: req.body.folderName }).then((folderDoc) => {
-
-                //handle success
-                res.status(201).json({
-                    ...folderDoc
-                }).end()
-
-            }, (err) => {
-                res.status(500).send("Server Error :(").end()
-                console.log(err)
-            })
-
-        } else {
-            res.status(400).send("Bad Request").end()
-        }
-
-    } else {
-        // handler for aunauthorized access
-
-        res.status(401).send("unauthorized").end()
+    const jsonResponse: CreateFolderJsonResponse = {
+        success: false,
+        info: "",
+        error: null,
+        data: null,
+        timeStamp: Date.now()
     }
 
+    // verify expected userJson Data exist
+
+    if (req.body.folderName) {
+
+        // we crreate the folder
+        await createFolder({ ownerId: res.locals.userId, folderName: req.body.folderName }).then((folderDoc) => {
+
+            //handle success
+            res.status(201)
+
+            jsonResponse.success = true
+            jsonResponse.info = "Folder created successfully!"
+            jsonResponse.data = { folderId: folderDoc.folderId }
+
+
+        }, (err) => {
+            //handle for duplicate foldername
+            jsonResponse.error = { message: err.message }
+            res.status(500)
+
+            console.log(err)
+        })
+
+    } else {
+        jsonResponse.error = { message: "Bad Request! folderName field is missing" }
+        res.status(400)
+    }
+
+    res.json(jsonResponse)
 }
 
 
-function readFoldersController(req: Request, res: Response) {
+async function readFoldersController(req: Request, res: Response) {
 
+    const jsonResponse: ReadFoldersJsonResponse = {
+        error: null,
+        data: [],
+        timeStamp: Date.now()
 
-    readFolders({ ownerId: res.locals.userId }).then((folderDocs) => {
+    }
 
-        res.send(JSON.stringify({ folderDocs }))
+    await readFolders({ ownerId: res.locals.userId }).then((folderDocs) => {
+
+        jsonResponse.data = folderDocs
+
 
     }, (err) => {
-        res.sendStatus(500)
+        res.status(500)
+        jsonResponse.error = { message: err.message }
     })
 
+    res.json(jsonResponse)
 
 }
 
-function updateFolderController(req: Request, res: Response) {
+async function updateFolderController(req: Request, res: Response) {
     //should receive a json object of the form folderPaths: {folderName?: string, lastOpenedDate?: Date, lastModifiedDate?: Date}}
 
-    if (req.params.folderId && req.body.folderObject) {
+    const jsonResponse: GenericFolderJsonResponse = {
+        success: false,
+        error: null,
+        timeStamp: Date.now()
+    }
 
-        updateFolder(req.params.folderId, { ...req.body.folderObject }).then((folderUpdated) => {
+    if (req.body.folderObject) {
 
-            res.status(200).json({ folderUpdated })
+        await updateFolder(req.params.folderId, { ...req.body.folderObject }).then(() => {
+
+            res.status(200)
+            jsonResponse.success = true
 
         }, (err) => {
             console.log(err)
-            res.sendStatus(500)
+
+            res.status(500)
+            jsonResponse.error = { message: err.message }
         })
 
-    }else {
-        res.sendStatus(400)
+    } else {
+        res.status(400)
+        jsonResponse.error = { message: "Bad Request! folderObject missing" }
     }
+
+    res.json(jsonResponse)
 }
 
-function deleteFolderController(req: Request, res: Response){
-    if (req.params.folderId){
-       
-        deleteFolder(req.params.folderId).then((deleted)=>{
-            res.status(200).json({deleted})
-        }, (err)=>{
-            console.log(err)
-            res.sendStatus(500)
-        })
-    
-    }else {
-        res.sendStatus(400)
+async function deleteFolderController(req: Request, res: Response) {
+
+    const jsonResponse: GenericFolderJsonResponse = {
+        success: false,
+        error: null,
+        timeStamp: Date.now()
     }
+
+
+    await deleteFolder(req.params.folderId).then((deleted) => {
+
+        res.status(200)
+        jsonResponse.success = deleted
+
+    }, (err) => {
+        console.log(err)
+
+        res.status(500)
+        jsonResponse.error = { message: err.message }
+
+    })
+
+    res.json(jsonResponse)
+
 }
 
 
-export { createFolderController, readFoldersController, updateFolderController, deleteFolderController}
+export { createFolderController, readFoldersController, updateFolderController, deleteFolderController }
