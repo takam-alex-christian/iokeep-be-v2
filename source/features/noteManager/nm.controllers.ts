@@ -2,43 +2,78 @@
 import { Request, Response, NextFunction } from "express";
 
 import { createNote, readNotes, readNote, deleteNote, updateNote } from "./nm.services";
+import { CreateNoteJsonResponse, MultiNoteJsonResponse, SingleNoteJsonResponse } from "./types";
 
 
-function createNoteController(req: Request, res: Response) {
+async function createNoteController(req: Request, res: Response) {
+
+    const jsonResponse: CreateNoteJsonResponse = {
+        success: false,
+        data: {
+            _id: ""
+        },
+        error: null,
+        timeStamp: Date.now()
+    }
+
     //folderId, editorState
     if (req.body.editorState && req.body.folderId) {
-        createNote(req.body.folderId, req.body.editorState).then((noteId) => {
-            res.status(201).json({ noteId });
+        await createNote(req.body.folderId, req.body.editorState).then((noteId) => {
+
+            res.status(201)
+            jsonResponse.success = true
+            jsonResponse.data._id = noteId
+
         }, (err) => {
-            res.status(500).send("Server Error")
+            
+            jsonResponse.error = {message: "Server Error! Retry again"}
+            res.status(500)
+
             console.log(err)
         })
+
     } else {
-        res.status(400).send("Bad request! \nnote eS&|fI");
+        jsonResponse.error = {message: "Bad Request! editorState and or folderId not provided"}
+        res.status(400)
     }
+
+    res.json(jsonResponse)
 }
 
-function readNotesController(req: Request, res: Response) {
+async function readNotesController(req: Request, res: Response) {
     // req.query.folderId
+
+    const jsonResponse: MultiNoteJsonResponse = {
+        error: null,
+        data: [],
+        timeStamp: Date.now()
+    }
 
     if (req.query.folderId) {
 
-        readNotes(req.query.folderId as string).then((noteDocs) => {
-
-            res.status(200).json({ notes: noteDocs })
+        await readNotes(req.query.folderId as string).then((noteDocs) => {
+        
+            res.status(200)
+            jsonResponse.data = noteDocs
 
         }, (err) => {
-            res.sendStatus(500)
+            res.status(500)
+
+            jsonResponse.error = {message: "Server Error! Try again shortly."}
             console.log(err)
         })
     } else {
-        res.sendStatus(400)
+        res.status(400)
+        jsonResponse.error = {message: "Bad Request! missing folder id"}
     }
 
     //validate folder if
     //handle wrong folder id
 
+    res.json(jsonResponse)
+
 }
+
 
 function readNoteController(req: Request, res: Response) {
     //req.params.noteId
