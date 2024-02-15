@@ -25,15 +25,15 @@ async function createNoteController(req: Request, res: Response) {
             jsonResponse.data._id = noteId
 
         }, (err) => {
-            
-            jsonResponse.error = {message: "Server Error! Retry again"}
+
+            jsonResponse.error = { message: "Server Error! Retry again" }
             res.status(500)
 
             console.log(err)
         })
 
     } else {
-        jsonResponse.error = {message: "Bad Request! editorState and or folderId not provided"}
+        jsonResponse.error = { message: "Bad Request! editorState and or folderId not provided" }
         res.status(400)
     }
 
@@ -52,19 +52,19 @@ async function readNotesController(req: Request, res: Response) {
     if (req.query.folderId) {
 
         await readNotes(req.query.folderId as string).then((noteDocs) => {
-        
+
             res.status(200)
             jsonResponse.data = noteDocs
 
         }, (err) => {
             res.status(500)
 
-            jsonResponse.error = {message: "Server Error! Try again shortly."}
+            jsonResponse.error = { message: "Server Error! Try again shortly." }
             console.log(err)
         })
     } else {
         res.status(400)
-        jsonResponse.error = {message: "Bad Request! missing folder id"}
+        jsonResponse.error = { message: "Bad Request! missing folder id" }
     }
 
     //validate folder if
@@ -75,26 +75,34 @@ async function readNotesController(req: Request, res: Response) {
 }
 
 
-function readNoteController(req: Request, res: Response) {
-    //req.params.noteId
-    if (req.params.noteId) {
+async function readNoteController(req: Request, res: Response) {
 
-        readNote(req.params.noteId).then((noteDoc) => {
-            res.status(200).json({ noteDoc })
-        }, (err) => {
-            res.sendStatus(500)
-            console.log(err)
-        })
-    } else {
-        res.status(400).json({ error: { message: `Bad Request! \n hint: notes/noteId` } })
+    const jsonResponse: SingleNoteJsonResponse = {
+        data: null,
+        error: null,
+        timeStamp: Date.now()
     }
+
+    await readNote(req.params.noteId).then((noteDoc) => {
+        
+        res.status(200)
+        jsonResponse.data = noteDoc
+
+    }, (err) => {
+        res.status(500)
+        jsonResponse.error = err
+
+        console.log(err)
+    })
+
+    res.json(jsonResponse)
 }
 
 function updateNoteController(req: Request, res: Response) {
     //req.params.noteId
     if (req.params.noteId) {
         if (req.body.editorState) updateNote(req.params.noteId, req.body.editorState).then((updated) => {
-            res.status(200).json({updated})
+            res.status(200).json({ updated })
         }, (err) => {
             res.sendStatus(500)
             console.log(err)
@@ -106,16 +114,16 @@ function updateNoteController(req: Request, res: Response) {
 }
 
 function deleteNoteController(req: Request, res: Response) {
-    if (req.params.noteId){
-        deleteNote(req.params.noteId).then((deleted)=>{
-            res.status(200).json({deleted})
-        }, (err)=>{
+    if (req.params.noteId) {
+        deleteNote(req.params.noteId).then((deleted) => {
+            res.status(200).json({ deleted })
+        }, (err) => {
             res.sendStatus(500)
             console.log(err)
         })
-    }else {
+    } else {
         res.status(400).send("Bad Request !")
     }
 }
 
-export { createNoteController, readNotesController, readNoteController,updateNoteController, deleteNoteController}
+export { createNoteController, readNotesController, readNoteController, updateNoteController, deleteNoteController }
