@@ -19,7 +19,8 @@ type SingleNoteJsonResponse = {//get one note
     data: null | {
         _id: string,
         editorState: string,
-        creationDate: string
+        creationDate: string,
+        lastModified: string
     },
     error: null | {message: string},
     timeStamp: number
