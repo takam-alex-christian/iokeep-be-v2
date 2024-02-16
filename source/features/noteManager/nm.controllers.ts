@@ -2,7 +2,7 @@
 import { Request, Response, NextFunction } from "express";
 
 import { createNote, readNotes, readNote, deleteNote, updateNote } from "./nm.services";
-import { CreateNoteJsonResponse, MultiNoteJsonResponse, SingleNoteJsonResponse } from "./types";
+import { CreateNoteJsonResponse, GenericNoteJsonResponse, MultiNoteJsonResponse, SingleNoteJsonResponse } from "./types";
 
 
 async function createNoteController(req: Request, res: Response) {
@@ -84,7 +84,7 @@ async function readNoteController(req: Request, res: Response) {
     }
 
     await readNote(req.params.noteId).then((noteDoc) => {
-        
+
         res.status(200)
         jsonResponse.data = noteDoc
 
@@ -98,32 +98,55 @@ async function readNoteController(req: Request, res: Response) {
     res.json(jsonResponse)
 }
 
-function updateNoteController(req: Request, res: Response) {
+async function updateNoteController(req: Request, res: Response) {
     //req.params.noteId
-    if (req.params.noteId) {
-        if (req.body.editorState) updateNote(req.params.noteId, req.body.editorState).then((updated) => {
-            res.status(200).json({ updated })
+
+    const jsonResponse: GenericNoteJsonResponse = {
+        success: false,
+        info: "",
+        error: null,
+        timeStamp: Date.now()
+    }
+
+    if (req.body.editorState) {
+        await updateNote(req.params.noteId, req.body.editorState).then((updated) => {
+            res.status(200)
+            jsonResponse.success = updated
+            jsonResponse.info = updated ? "Note updated Successfully!" : "Failed to update note"
         }, (err) => {
-            res.sendStatus(500)
+            res.status(500)
+            jsonResponse.error = { message: "Server Error!" }
             console.log(err)
         })
-        else res.status(400).send("Bad Request! \n body => {eS: string}")
-    } else {
-        res.status(400).send("Bad Requst! \n hint: notes/noteId")
     }
+    else {
+        res.status(400)
+        jsonResponse.error = { message: "Bad Request! \n body => {eS: string}" }
+    }
+
+    res.json(jsonResponse)
 }
 
-function deleteNoteController(req: Request, res: Response) {
-    if (req.params.noteId) {
-        deleteNote(req.params.noteId).then((deleted) => {
-            res.status(200).json({ deleted })
-        }, (err) => {
-            res.sendStatus(500)
-            console.log(err)
-        })
-    } else {
-        res.status(400).send("Bad Request !")
+async function deleteNoteController(req: Request, res: Response) {
+
+    const jsonResponse: GenericNoteJsonResponse = {
+        success: false,
+        info: "",
+        error: null,
+        timeStamp: Date.now()
     }
+
+    await deleteNote(req.params.noteId).then((deleted) => {
+        res.status(200)
+        jsonResponse.success = deleted
+
+    }, (err) => {
+        res.status(500)
+        console.log(err)
+        jsonResponse.error = { message: "Server Error!" }
+    })
+
+    res.json(jsonResponse)
 }
 
 export { createNoteController, readNotesController, readNoteController, updateNoteController, deleteNoteController }
