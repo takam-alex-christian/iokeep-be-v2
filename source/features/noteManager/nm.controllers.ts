@@ -43,28 +43,21 @@ async function createNoteController(req: Request, res: Response) {
 async function readNotesController(req: Request, res: Response) {
     // req.query.folderId
 
-    const jsonResponse: MultiNoteJsonResponse = {
-        error: null,
-        data: [],
-        timeStamp: Date.now()
-    }
+    let jsonResponse: MultiNoteJsonResponse = []
 
     if (req.query.folderId) {
 
         await readNotes(req.query.folderId as string).then((noteDocs) => {
 
             res.status(200)
-            jsonResponse.data = noteDocs
+            jsonResponse = noteDocs
 
         }, (err) => {
             res.status(500)
-
-            jsonResponse.error = { message: "Server Error! Try again shortly." }
             console.log(err)
         })
     } else {
         res.status(400)
-        jsonResponse.error = { message: "Bad Request! missing folder id" }
     }
 
     //validate folder if

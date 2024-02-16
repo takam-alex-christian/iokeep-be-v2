@@ -4,14 +4,14 @@ type CreateNoteJsonResponse = {
     data: {
         _id: string
     },
-    error: null | {message: string},
+    error: null | { message: string },
     timeStamp: number
 }
 
 type GenericNoteJsonResponse = { //patch & delete response
     success: boolean,
     info: string,
-    error: null | {message: string},
+    error: null | { message: string },
     timeStamp: number
 }
 
@@ -22,15 +22,12 @@ type SingleNoteJsonResponse = {//get one note
         creationDate: string,
         lastModified: string
     },
-    error: null | {message: string},
+    error: null | { message: string },
     timeStamp: number
 
 }
 
-type MultiNoteJsonResponse = { //get many notes
-    data: Array<{_id: string, editorState: string, creationDate: string, lastModified: string}>
-    error: null | {message: string},
-    timeStamp: number
-}
+type MultiNoteJsonResponse = Array<{ _id: string, editorState: string, creationDate: string, lastModified: string }>
 
-export type {CreateNoteJsonResponse, GenericNoteJsonResponse, SingleNoteJsonResponse, MultiNoteJsonResponse}
+
+export type { CreateNoteJsonResponse, GenericNoteJsonResponse, SingleNoteJsonResponse, MultiNoteJsonResponse }
