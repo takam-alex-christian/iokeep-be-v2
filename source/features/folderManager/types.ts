@@ -11,11 +11,7 @@ type CreateFolderJsonResponse = {
     timeStamp: number
 }
 
-type ReadFoldersJsonResponse = {
-    error: null | { message: string },
-    data: Array<any> //folderDocs
-    timeStamp: number
-}
+type ReadFoldersJsonResponse = Array<any> //folderDocs
 
 type GenericFolderJsonResponse = {
     success: boolean,

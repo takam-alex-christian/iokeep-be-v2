@@ -51,21 +51,14 @@ async function createFolderController(req: Request, res: Response, next: NextFun
 
 async function readFoldersController(req: Request, res: Response) {
 
-    const jsonResponse: ReadFoldersJsonResponse = {
-        error: null,
-        data: [],
-        timeStamp: Date.now()
-
-    }
+    let jsonResponse: ReadFoldersJsonResponse = []
 
     await readFolders({ ownerId: res.locals.userId }).then((folderDocs) => {
 
-        jsonResponse.data = folderDocs
-
-
+        jsonResponse = folderDocs
     }, (err) => {
         res.status(500)
-        jsonResponse.error = { message: err.message }
+        console.log(err)
     })
 
     res.json(jsonResponse)

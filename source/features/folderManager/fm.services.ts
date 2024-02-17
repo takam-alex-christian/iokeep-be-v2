@@ -37,8 +37,6 @@ function createFolder({ ownerId, folderName }: { ownerId: string, folderName: st
         }, (err) => {
             createFolderReject(err)
         })
-
-        console.log("got here expectedly")
     })
 }
 
