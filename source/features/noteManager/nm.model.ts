@@ -15,6 +15,12 @@ const noteSchema = new Schema({
         type: mongo.ObjectId,
         required: true
     },
+    editorState: { 
+        type: String,
+        required: true
+    },
+    description:[String],
+
     creationDate: {
         type: Date,
         default: ()=>{
@@ -33,10 +39,7 @@ const noteSchema = new Schema({
             return new Date()
         }
     },
-    editorState: { 
-        type: String,
-        required: true
-    }
+    
 
 })
 

@@ -10,10 +10,11 @@ import { NoteModel } from "./nm.model";
 //delete note
 
 
-function createNote(folderId: string, editorState: string): Promise<string> {
+function createNote(folderId: string, editorState: string, description: Array<string>): Promise<string> {
     return new Promise((createNoteResolve, createNoteReject) => {
-
-        new NoteModel({ folderId, editorState }).save().then((noteDoc) => {
+        console.log(description)
+        
+        new NoteModel({ folderId, editorState, description: description}).save().then((noteDoc) => {
             createNoteResolve(noteDoc._id.toString())
         }, (err) => {
             createNoteReject(err)
@@ -25,6 +26,7 @@ function createNote(folderId: string, editorState: string): Promise<string> {
 function readNotes(folderId: string): Promise<Array<any>> {
     return new Promise((readNotesResolve, readNotesReject) => {
 
+        //the below implementation should be optimize to fetch only description field
         NoteModel.find({ folderId }).then((notes) => {
             readNotesResolve(notes)
         }, (err) => {
@@ -37,7 +39,7 @@ function readNotes(folderId: string): Promise<Array<any>> {
 function readNote(noteId: string): Promise<any> { //returns editorState string
     //
     return new Promise((readNoteRsolve, readNoteReject) => {
-        NoteModel.findById(noteId).then((noteDoc) => {
+        NoteModel.findById(noteId).then((noteDoc) => { //should omit description field in the future
             if (noteDoc) {
                 readNoteRsolve(noteDoc)
             } else {
@@ -50,13 +52,14 @@ function readNote(noteId: string): Promise<any> { //returns editorState string
 }
 
 //function to update editorState
-function updateNote(noteId: string, editorState: string): Promise<boolean>{
+function updateNote(noteId: string, editorState: string, description: string[]): Promise<boolean>{
     return new Promise ((updateNoteResolve, updateNoteReject)=>{
         
         NoteModel.findById(noteId).then((noteDoc)=>{
             if (noteDoc){
                 noteDoc.editorState = editorState;
                 noteDoc.lastModifiedDate = new Date();
+                noteDoc.description = description;
 
                 noteDoc.save().then(()=>{
                     updateNoteResolve(true)

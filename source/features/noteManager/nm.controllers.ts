@@ -17,8 +17,9 @@ async function createNoteController(req: Request, res: Response) {
     }
 
     //folderId, editorState
-    if (req.body.editorState && req.body.folderId) {
-        await createNote(req.body.folderId, req.body.editorState).then((noteId) => {
+    if (req.body.editorState && req.body.folderId && req.body.description) {
+        
+        await createNote(req.body.folderId, req.body.editorState, req.body.description).then((noteId) => {
 
             res.status(201)
             jsonResponse.success = true
@@ -101,8 +102,8 @@ async function updateNoteController(req: Request, res: Response) {
         timeStamp: Date.now()
     }
 
-    if (req.body.editorState) {
-        await updateNote(req.params.noteId, req.body.editorState).then((updated) => {
+    if (req.body.editorState && req.body.description) {
+        await updateNote(req.params.noteId, req.body.editorState, req.body.description).then((updated) => {
             res.status(200)
             jsonResponse.success = updated
             jsonResponse.info = updated ? "Note updated Successfully!" : "Failed to update note"

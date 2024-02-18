@@ -27,7 +27,7 @@ type SingleNoteJsonResponse = {//get one note
 
 }
 
-type MultiNoteJsonResponse = Array<{ _id: string, editorState: string, creationDate: string, lastModified: string }>
+type MultiNoteJsonResponse = Array<{ _id: string, editorState: string, creationDate: string, lastModified: string, description: Array<string>}>
 
 
 export type { CreateNoteJsonResponse, GenericNoteJsonResponse, SingleNoteJsonResponse, MultiNoteJsonResponse }
