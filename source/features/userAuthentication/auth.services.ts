@@ -29,7 +29,9 @@ async function authUser({ username, password }: { username: string, password: st
 
                         //generate the authToken here
 
-
+                        if (passwordMatch){
+                            
+                        
                         jwt.sign({
                             userId: userDoc._id
                         }, user_refresh_auth_key, { algorithm: 'HS256' }, (err, refreshToken) => {
@@ -46,6 +48,8 @@ async function authUser({ username, password }: { username: string, password: st
                                     }, user_auth_key, {
                                         algorithm: 'HS256'
                                     })
+                                    
+                                    console.log({passwordMatch, accessToken, refreshToken})
 
                                     resolve({ authed: passwordMatch, accessToken, refreshToken: refreshToken! })
 
@@ -59,8 +63,12 @@ async function authUser({ username, password }: { username: string, password: st
                                 reject(err)
                             }
                         })
+                    }else {
+                        reject(new Error("Password incorrect"))
+                    }
 
                     })
+                    
                 } else {
                     // handle for empty userDoc.password
                     // or update for schema password type to 
