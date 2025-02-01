@@ -123,7 +123,8 @@ async function updateNoteController(req: Request, res: Response) {
     await updateNote(
       req.params.noteId,
       req.body.editorState,
-      req.body.description
+      req.body.description,
+      req.body.isPublic ? req.body.isPublic : null
     ).then(
       (updated) => {
         res.status(200);
