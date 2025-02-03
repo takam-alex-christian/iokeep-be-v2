@@ -31,10 +31,11 @@ async function createNoteController(req: Request, res: Response) {
       req.body.editorState,
       req.body.description
     ).then(
-      (noteId) => {
+      (noteData) => {
         res.status(201);
         jsonResponse.success = true;
-        jsonResponse.data._id = noteId;
+
+        jsonResponse.data = noteData;
       },
       (err) => {
         jsonResponse.error = { message: "Server Error! Retry again" };

@@ -1,4 +1,6 @@
-import { NoteModel } from "./nm.model";
+import { NoteModel, RawNoteDocType } from "./nm.model";
+
+import { CreateNoteJsonResponse } from "./types";
 
 //create note service
 //read notes
@@ -10,7 +12,7 @@ function createNote(
   folderId: string,
   editorState: string,
   description: Array<string>
-): Promise<string> {
+): Promise<CreateNoteJsonResponse["data"]> {
   return new Promise((createNoteResolve, createNoteReject) => {
     console.log(description);
 
@@ -18,9 +20,12 @@ function createNote(
       .save()
       .then(
         (noteDoc) => {
-          createNoteResolve(noteDoc._id.toString());
+          const noteDocObject = noteDoc.toObject();
+          //@ts-ignore
+          delete noteDocObject["editorState"];
+          createNoteResolve({ ...noteDocObject, _id: noteDoc.id });
         },
-        (err) => {
+        (err): void => {
           createNoteReject(err);
         }
       );

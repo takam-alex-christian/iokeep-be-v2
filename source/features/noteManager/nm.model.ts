@@ -1,6 +1,6 @@
-import { Schema, model, mongo } from "mongoose";
+import { Schema, model, mongo, InferRawDocType } from "mongoose";
 
-const noteSchema = new Schema({
+const noteSchemaDef = {
   _id: {
     type: mongo.ObjectId,
     default: () => {
@@ -39,8 +39,12 @@ const noteSchema = new Schema({
       return new Date();
     },
   },
-});
+};
+
+const noteSchema = new Schema(noteSchemaDef);
 
 const NoteModel = model("Note", noteSchema);
 
-export { NoteModel };
+type RawNoteDocType = InferRawDocType<typeof noteSchemaDef>;
+
+export { NoteModel, RawNoteDocType };
