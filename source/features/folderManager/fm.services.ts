@@ -49,7 +49,15 @@ function readFolders({ ownerId }: { ownerId: string }): Promise<any> {
   return new Promise((readFoldersResolve, readFoldersReject) => {
     FolderModel.find({ ownerId }).then(
       (folderDocs) => {
-        readFoldersResolve(folderDocs);
+        if (folderDocs.length == 0) {
+          new FolderModel({ ownerId, folderName: "Default" })
+            .save()
+            .then((onlyFolderDoc) => {
+              readFoldersResolve([onlyFolderDoc]);
+            });
+        } else {
+          readFoldersResolve(folderDocs);
+        }
       },
       (err) => {
         readFoldersReject(err);
