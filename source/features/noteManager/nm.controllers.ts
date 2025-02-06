@@ -13,6 +13,7 @@ import {
   MultiNoteJsonResponse,
   SingleNoteJsonResponse,
 } from "./types";
+import { RawNoteDocType } from "./nm.model";
 
 async function createNoteController(req: Request, res: Response) {
   const jsonResponse: CreateNoteJsonResponse = {
@@ -120,17 +121,14 @@ async function updateNoteController(req: Request, res: Response) {
     timeStamp: Date.now(),
   };
 
-  if (req.body.editorState && req.body.description) {
-    await updateNote(
-      req.params.noteId,
-      req.body.editorState,
-      req.body.description,
-      req.body.isPublic ? req.body.isPublic : null
-    ).then(
-      (updated) => {
+  const noteData: Partial<Omit<RawNoteDocType, "_id">> = req.body.noteData;
+
+  if (req.params.noteId) {
+    await updateNote({ ...noteData, _id: req.params.noteId }).then(
+      (isUpdated) => {
         res.status(200);
-        jsonResponse.success = updated;
-        jsonResponse.info = updated
+        jsonResponse.success = isUpdated;
+        jsonResponse.info = isUpdated
           ? "Note updated Successfully!"
           : "Failed to update note";
       },

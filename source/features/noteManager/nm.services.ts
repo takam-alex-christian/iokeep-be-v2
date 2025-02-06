@@ -68,19 +68,25 @@ function readNote(noteId: string): Promise<any> {
 
 //function to update editorState
 function updateNote(
-  noteId: string,
-  editorState: string,
-  description: string[],
-  isPublic: boolean
+  noteDocProps: Partial<Omit<RawNoteDocType, "_id">> & { _id: string }
 ): Promise<boolean> {
   return new Promise((updateNoteResolve, updateNoteReject) => {
-    NoteModel.findById(noteId).then(
+    NoteModel.findById(noteDocProps._id).then(
       (noteDoc) => {
         if (noteDoc) {
-          noteDoc.editorState = editorState;
+          // if ()
+          if (noteDocProps.editorState)
+            noteDoc.editorState = noteDocProps.editorState;
           noteDoc.lastModifiedDate = new Date();
-          noteDoc.description = description;
-          noteDoc.isPublic = isPublic ? isPublic : noteDoc.isPublic;
+
+          if (noteDocProps.description)
+            noteDoc.description = noteDocProps.description;
+          if (noteDocProps.isPublic)
+            noteDoc.isPublic = noteDocProps.isPublic
+              ? noteDocProps.isPublic
+              : noteDoc.isPublic;
+
+          if (noteDocProps.folderId) noteDoc.folderId = noteDocProps.folderId;
 
           noteDoc.save().then(
             () => {
