@@ -1,86 +1,178 @@
-
 import { Request, Response, NextFunction } from "express";
 
-import { createNote, readNotes, readNote, deleteNote, updateNote } from "./nm.services";
+import {
+  createNote,
+  readNotes,
+  readNote,
+  deleteNote,
+  updateNote,
+} from "./nm.services";
+import {
+  CreateNoteJsonResponse,
+  GenericNoteJsonResponse,
+  MultiNoteJsonResponse,
+  SingleNoteJsonResponse,
+} from "./types";
+import { RawNoteDocType } from "./nm.model";
 
+async function createNoteController(req: Request, res: Response) {
+  const jsonResponse: CreateNoteJsonResponse = {
+    success: false,
+    data: {
+      _id: "",
+    },
+    error: null,
+    timeStamp: Date.now(),
+  };
 
-function createNoteController(req: Request, res: Response) {
-    //folderId, editorState
-    if (req.body.editorState && req.body.folderId) {
-        createNote(req.body.folderId, req.body.editorState).then((noteId) => {
-            res.status(201).json({ noteId });
-        }, (err) => {
-            res.status(500).send("Server Error")
-            console.log(err)
-        })
-    } else {
-        res.status(400).send("Bad request! \nnote eS&|fI");
-    }
+  //folderId, editorState
+  if (req.body.editorState && req.body.folderId && req.body.description) {
+    await createNote(
+      req.body.folderId,
+      req.body.editorState,
+      req.body.description
+    ).then(
+      (noteData) => {
+        res.status(201);
+        jsonResponse.success = true;
+
+        jsonResponse.data = noteData;
+      },
+      (err) => {
+        jsonResponse.error = { message: "Server Error! Retry again" };
+        res.status(500);
+
+        console.log(err);
+      }
+    );
+  } else {
+    jsonResponse.error = {
+      message: "Bad Request! editorState and or folderId not provided",
+    };
+    res.status(400);
+  }
+
+  res.json(jsonResponse);
 }
 
-function readNotesController(req: Request, res: Response) {
-    // req.query.folderId
+async function readNotesController(req: Request, res: Response) {
+  // req.query.folderId
 
-    if (req.query.folderId) {
+  let jsonResponse: MultiNoteJsonResponse = [];
 
-        readNotes(req.query.folderId as string).then((noteDocs) => {
+  if (req.query.folderId) {
+    await readNotes(req.query.folderId as string).then(
+      (noteDocs) => {
+        res.status(200);
+        jsonResponse = noteDocs;
+      },
+      (err) => {
+        res.status(500);
+        console.log(err);
+      }
+    );
+  } else {
+    res.status(400);
+  }
 
-            res.status(200).json({ notes: noteDocs })
+  //validate folder if
+  //handle wrong folder id
 
-        }, (err) => {
-            res.sendStatus(500)
-            console.log(err)
-        })
-    } else {
-        res.sendStatus(400)
-    }
-
-    //validate folder if
-    //handle wrong folder id
-
+  res.json(jsonResponse);
 }
 
-function readNoteController(req: Request, res: Response) {
-    //req.params.noteId
-    if (req.params.noteId) {
+async function readNoteController(req: Request, res: Response) {
+  const jsonResponse: SingleNoteJsonResponse = {
+    data: null,
+    error: null,
+    timeStamp: Date.now(),
+  };
 
-        readNote(req.params.noteId).then((noteDoc) => {
-            res.status(200).json({ noteDoc })
-        }, (err) => {
-            res.sendStatus(500)
-            console.log(err)
-        })
-    } else {
-        res.status(400).json({ error: { message: `Bad Request! \n hint: notes/noteId` } })
+  await readNote(req.params.noteId).then(
+    (noteDoc) => {
+      if (noteDoc.isPublic == true || res.locals.userId != null) {
+        res.status(200);
+        jsonResponse.data = noteDoc;
+      } else {
+        res.status(401);
+        jsonResponse.error = {
+          message: "You don't have access to this resource",
+        };
+      }
+    },
+    (err) => {
+      res.status(500);
+      jsonResponse.error = err;
+
+      console.log(err);
     }
+  );
+
+  res.json(jsonResponse);
 }
 
-function updateNoteController(req: Request, res: Response) {
-    //req.params.noteId
-    if (req.params.noteId) {
-        if (req.body.editorState) updateNote(req.params.noteId, req.body.editorState).then((updated) => {
-            res.status(200).json({updated})
-        }, (err) => {
-            res.sendStatus(500)
-            console.log(err)
-        })
-        else res.status(400).send("Bad Request! \n body => {eS: string}")
-    } else {
-        res.status(400).send("Bad Requst! \n hint: notes/noteId")
-    }
+async function updateNoteController(req: Request, res: Response) {
+  //req.params.noteId
+
+  const jsonResponse: GenericNoteJsonResponse = {
+    success: false,
+    info: "",
+    error: null,
+    timeStamp: Date.now(),
+  };
+
+  const noteData: Partial<Omit<RawNoteDocType, "_id">> = req.body.noteData;
+
+  if (req.params.noteId) {
+    await updateNote({ ...noteData, _id: req.params.noteId }).then(
+      (isUpdated) => {
+        res.status(200);
+        jsonResponse.success = isUpdated;
+        jsonResponse.info = isUpdated
+          ? "Note updated Successfully!"
+          : "Failed to update note";
+      },
+      (err) => {
+        res.status(500);
+        jsonResponse.error = { message: "Server Error!" };
+        console.log(err);
+      }
+    );
+  } else {
+    res.status(400);
+    jsonResponse.error = { message: "Bad Request! \n body => {eS: string}" };
+  }
+
+  res.json(jsonResponse);
 }
 
-function deleteNoteController(req: Request, res: Response) {
-    if (req.params.noteId){
-        deleteNote(req.params.noteId).then((deleted)=>{
-            res.status(200).json({deleted})
-        }, (err)=>{
-            res.sendStatus(500)
-            console.log(err)
-        })
-    }else {
-        res.status(400).send("Bad Request !")
+async function deleteNoteController(req: Request, res: Response) {
+  const jsonResponse: GenericNoteJsonResponse = {
+    success: false,
+    info: "",
+    error: null,
+    timeStamp: Date.now(),
+  };
+
+  await deleteNote(req.params.noteId).then(
+    (deleted) => {
+      res.status(200);
+      jsonResponse.success = deleted;
+    },
+    (err) => {
+      res.status(500);
+      console.log(err);
+      jsonResponse.error = { message: "Server Error!" };
     }
+  );
+
+  res.json(jsonResponse);
 }
 
-export { createNoteController, readNotesController, readNoteController,updateNoteController, deleteNoteController}
+export {
+  createNoteController,
+  readNotesController,
+  readNoteController,
+  updateNoteController,
+  deleteNoteController,
+};
