@@ -14,6 +14,7 @@ import {
   SingleNoteJsonResponse,
 } from "./types";
 import { RawNoteDocType } from "./nm.model";
+import { isFolderPublic } from "../folderManager/fm.services";
 
 async function createNoteController(req: Request, res: Response) {
   const jsonResponse: CreateNoteJsonResponse = {
@@ -57,20 +58,48 @@ async function createNoteController(req: Request, res: Response) {
 
 async function readNotesController(req: Request, res: Response) {
   // req.query.folderId
+  let folderId: string = req.query.folderId
+    ? (req.query.folderId as string)
+    : "";
 
   let jsonResponse: MultiNoteJsonResponse = [];
 
-  if (req.query.folderId) {
-    await readNotes(req.query.folderId as string).then(
-      (noteDocs) => {
-        res.status(200);
-        jsonResponse = noteDocs;
-      },
-      (err) => {
-        res.status(500);
-        console.log(err);
-      }
-    );
+  if (folderId) {
+    //first check if that folder id is public
+    if (res.locals.userId != null) {
+      //client is authed
+      await readNotes(folderId).then(
+        (noteDocs) => {
+          res.status(200);
+          jsonResponse = noteDocs;
+        },
+        (err) => {
+          res.status(500);
+          console.log(err);
+        }
+      );
+    } else {
+      //client is not authed, in which case we only proceed if queried folder isPublic
+      await isFolderPublic(folderId).then(async (isPublic) => {
+        if (isPublic) {
+          //fetch notes
+          await readNotes(folderId).then(
+            (noteDocs) => {
+              res.status(200);
+              jsonResponse = noteDocs;
+            },
+            (err) => {
+              res.status(500);
+              console.log(err);
+            }
+          );
+        } else {
+          //end connection
+          res.status(401);
+          jsonResponse = [];
+        }
+      });
+    }
   } else {
     res.status(400);
   }
@@ -89,15 +118,25 @@ async function readNoteController(req: Request, res: Response) {
   };
 
   await readNote(req.params.noteId).then(
-    (noteDoc) => {
-      if (noteDoc.isPublic == true || res.locals.userId != null) {
-        res.status(200);
-        jsonResponse.data = noteDoc;
-      } else {
-        res.status(401);
-        jsonResponse.error = {
-          message: "You don't have access to this resource",
-        };
+    async (noteDoc) => {
+      //check whether ownerFolderId is public, note is public if parentFolder is public
+      if (noteDoc) {
+        let parentFolderIsPublic = await isFolderPublic(noteDoc.folderId);
+
+        if (
+          noteDoc.isPublic == true ||
+          res.locals.userId != null ||
+          parentFolderIsPublic
+        ) {
+          res.status(200);
+          //@ts-ignore
+          jsonResponse.data = noteDoc;
+        } else {
+          res.status(401);
+          jsonResponse.error = {
+            message: "You don't have access to this resource",
+          };
+        }
       }
     },
     (err) => {
