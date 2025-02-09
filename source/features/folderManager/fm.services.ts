@@ -1,3 +1,4 @@
+import { ObjectId } from "mongoose";
 import { NoteModel } from "../noteManager/nm.model";
 import { FolderModel } from "./fm.model";
 
@@ -90,6 +91,7 @@ function updateFolder(
     folderName?: string;
     lastModifiedDate?: Date;
     lastOpenedDate?: Date;
+    isPublic?: boolean;
   }
 ): Promise<boolean> {
   return new Promise((updateFolderResolve, updateFolderReject) => {
@@ -143,10 +145,23 @@ function deleteFolder(folderId: string): Promise<boolean> {
   });
 }
 
+function isFolderPublic(folderId: string): Promise<boolean> {
+  return new Promise((resolveFolderIsPublic, rejectFolderIsPublic) => {
+    FolderModel.findById(folderId).then((foundFolderDoc) => {
+      if (foundFolderDoc) {
+        resolveFolderIsPublic(foundFolderDoc.isPublic);
+      } else {
+        rejectFolderIsPublic(new Error("folder inexistent."));
+      }
+    });
+  });
+}
+
 export {
   createFolder,
   readFolders,
   countNotesByFolderIds,
   updateFolder,
   deleteFolder,
+  isFolderPublic,
 };
