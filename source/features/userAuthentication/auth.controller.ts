@@ -217,6 +217,7 @@ async function logoutController(req: Request, res: Response) {
   await logoutService(res.locals.userId, req.cookies["refresh_token"])
     .then((success) => {
       res.status(200).clearCookie("access_token");
+      res.status(200).clearCookie("refresh_token");
       jsonResponse.success = success;
     })
     .catch((err) => {
