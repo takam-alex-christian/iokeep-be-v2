@@ -1,26 +1,31 @@
+import { InferRawDocType, Schema, model, mongo } from "mongoose";
 
-
-import { Schema, model, mongo } from "mongoose"
-
-
-
-const userSchema = new Schema({
-    _id: {
-        type: mongo.ObjectId,
-        default: () => {
-            return new mongo.ObjectId()
-        }
+const userSchemaDef = {
+  _id: {
+    type: mongo.ObjectId,
+    default: () => {
+      return new mongo.ObjectId();
     },
-    username: String,
-    password: String,
-    refreshTokens: {
-        type: [String],
-        default: []
-    },
-    creationDate: {
-        type: Date,
-        default: () => new Date(Date.now())
-    },
-})
+  },
+  username: String,
+  password: String,
+  refreshTokens: {
+    type: [String],
+    default: [],
+  },
+  creationDate: {
+    type: Date,
+    default: () => new Date(Date.now()),
+  },
+};
 
-export default model("User", userSchema)
+const userSchema = new Schema(userSchemaDef);
+
+const UserModel = model("User", userSchema);
+
+type RawUserDocType = InferRawDocType<typeof userSchemaDef>;
+
+export default UserModel;
+
+export { UserModel, type RawUserDocType };
+// export type {RawUserDocType}
