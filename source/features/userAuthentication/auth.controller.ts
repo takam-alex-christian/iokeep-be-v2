@@ -30,6 +30,7 @@ async function getAccessTokenController(req: Request, res: Response) {
 
         res.cookie("access_token", accessToken, {
           httpOnly: true,
+          maxAge: 600000 // 10 minutes
         });
       },
       (err) => {
@@ -123,11 +124,12 @@ async function loginController(
           //set cookie on receiving end with jwt auth_token
           res.cookie("access_token", accessToken, {
             httpOnly: true,
-            // domain: "localhost",
+            maxAge: 600000 // 10 minutes
           });
 
           res.cookie("refresh_token", refreshToken, {
             httpOnly: true,
+            maxAge: 2592000000 // 30 days
           });
 
           jsonResponse.success = true;
