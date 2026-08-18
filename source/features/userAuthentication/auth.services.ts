@@ -1,306 +1,215 @@
 import { hash, compare } from "bcrypt";
-import jwt from "jsonwebtoken";
+import jwt, { SignOptions } from "jsonwebtoken";
 
 import { user_auth_key, user_refresh_auth_key } from "../../config/config";
 
-import { UserModel, RawUserDocType } from "./auth.model";
+import type { IUserRepository } from "./user.repository.interface";
 
-async function doesUsernameExist({
-  username,
-}: {
-  username: string;
-}): Promise<boolean> {
+type TokenPayload = { userId: string };
+
+function signToken(
+  payload: TokenPayload,
+  secret: string,
+  options: SignOptions
+): Promise<string> {
   return new Promise((resolve, reject) => {
-    UserModel.findOne({ username })
-      .then((userDoc) => {
-        if (userDoc) resolve(true);
-        else resolve(false);
-      })
-      .catch((err) => {
+    jwt.sign(payload, secret, options, (err, token) => {
+      if (err) {
         reject(err);
-      });
-  });
-}
-
-async function authUser({
-  username,
-  password,
-}: {
-  username: string;
-  password: string;
-}): Promise<{
-  userData: Pick<RawUserDocType, "username">;
-  authed: boolean;
-  accessToken: string;
-  refreshToken: string;
-}> {
-  return new Promise((resolve, reject) => {
-    UserModel.findOne({ username }).then(
-      async (userDoc) => {
-        if (userDoc) {
-          // user found
-
-          if (userDoc.password) {
-            await compare(password, userDoc.password).then((passwordMatch) => {
-              //compare plaintext password and encrypted password
-
-              //generate the authToken here
-
-              if (passwordMatch) {
-                jwt.sign(
-                  {
-                    userId: userDoc._id,
-                  },
-                  user_refresh_auth_key,
-                  { algorithm: "HS256" },
-                  (err, refreshToken) => {
-                    if (!err) {
-                      //save the refresh token to db
-
-                      userDoc.refreshTokens.push(refreshToken!);
-
-                      userDoc.save().then(
-                        (userDoc) => {
-                          //handle refreshToken saved
-
-                          const accessToken = jwt.sign(
-                            {
-                              userId: userDoc._id,
-                            },
-                            user_auth_key,
-                            {
-                              algorithm: "HS256",
-                            }
-                          );
-
-                          if (process.env.NODE_ENV == "development") {
-                            console.log({
-                              userDoc,
-                              passwordMatch,
-                              accessToken,
-                              refreshToken,
-                            });
-                          }
-
-                          resolve({
-                            userData: userDoc,
-                            authed: passwordMatch,
-                            accessToken,
-                            refreshToken: refreshToken!,
-                          });
-                        },
-                        (err) => {
-                          //handle save refreshToken error
-                          reject(err);
-                        }
-                      );
-                    } else {
-                      reject(err);
-                    }
-                  }
-                );
-              } else {
-                reject(new Error("Password incorrect"));
-              }
-            });
-          } else {
-            // handle for empty userDoc.password
-            // or update for schema password type to
-            reject(new Error("My Bad ;)"));
-          }
-        } else {
-          //handler for user not found
-          reject(new Error("user_not_found"));
-        }
-      },
-      (err) => {
-        //handle for dbms error
-        reject(err);
+        return;
       }
-    );
-  });
-}
 
-function getAccessToken({
-  refreshToken,
-}: {
-  refreshToken: string;
-}): Promise<{ accessToken: string }> {
-  return new Promise((getAccessTokenResolve, getAccessTokenReject) => {
-    jwt.verify(refreshToken, user_refresh_auth_key, (err, decodedPayload) => {
-      if (!err) {
-        //@ts-ignore
-        UserModel.findOne({ _id: decodedPayload?.userId }).then(
-          (userDoc) => {
-            if (userDoc) {
-              if (userDoc.refreshTokens.includes(refreshToken)) {
-                //generate and return a new access_token
-
-                jwt.sign(
-                  { userId: userDoc._id },
-                  process.env.USER_AUTH_KEY!,
-                  { algorithm: "HS256", expiresIn: "10m" },
-                  (err, accessToken) => {
-                    if (!err && accessToken) {
-                      return getAccessTokenResolve({
-                        accessToken: accessToken,
-                      });
-                    } else {
-                      return getAccessTokenReject(err);
-                    }
-                  }
-                );
-              } else {
-                //non existing refresh token
-                //handle error
-                // console.log("invalid refresh token, login please")
-                getAccessTokenReject(new Error("invalidated"));
-              }
-            } else {
-              return getAccessTokenReject(new Error("No user with this _id"));
-            }
-          },
-          (err) => {
-            return getAccessTokenReject(err);
-          }
-        );
-      } else {
-        //handle for verify errors
-        return getAccessTokenReject(err);
+      if (typeof token !== "string") {
+        reject(new Error("Failed to sign token"));
+        return;
       }
+
+      resolve(token);
     });
   });
 }
 
-//a function to create user
-async function createUser({
-  username,
-  password,
-}: {
-  username: string;
-  password: string;
-}): Promise<Pick<RawUserDocType, "username">> {
-  //check if username exist first
+function verifyToken(token: string, secret: string): Promise<TokenPayload> {
+  return new Promise((resolve, reject) => {
+    jwt.verify(token, secret, (err, decoded) => {
+      if (err) {
+        reject(err);
+        return;
+      }
 
-  const saltRounds = 10;
+      if (!decoded || typeof decoded === "string") {
+        reject(new Error("Invalid token payload"));
+        return;
+      }
 
-  const createUserPromise: Promise<Pick<RawUserDocType, "username">> =
-    new Promise((createUserResolve, createUserReject) => {
-      doesUsernameExist({ username }).then(
-        async (userExist) => {
-          if (!userExist) {
-            await hash(password, saltRounds).then(
-              async (generatedHash) => {
-                await new UserModel({
-                  username,
-                  password: generatedHash,
-                })
-                  .save()
-                  .then(
-                    (userDoc) => {
-                      createUserResolve(userDoc);
-                    },
-                    (err) => {
-                      createUserReject(err);
-                    }
-                  );
-              },
-              (err) => {
-                //handle problem with hashing the password
-                if (process.env.NODE_ENV === "development") {
-                  console.log(
-                    `error while hashing user password, for more info-> ${err}`
-                  );
-                }
+      const userId = decoded.userId;
 
-                return createUserReject(err);
-              }
-            );
-          } else {
-            return createUserReject(new Error("username_unavailable"));
-          }
-        },
-        (err) => {
-          return createUserReject(err);
-        }
-      );
+      if (typeof userId !== "string") {
+        reject(new Error("Invalid token payload"));
+        return;
+      }
+
+      resolve({ userId });
     });
+  });
+}
 
-  if (process.env.NODE_ENV === "development") {
-    console.log(
-      `createUser called time: ${new Date(Date.now()).toISOString()}`
-    );
+function createAuthService(userRepo: IUserRepository) {
+  async function doesUsernameExist({
+    username,
+  }: {
+    username: string;
+  }): Promise<boolean> {
+    const user = await userRepo.findByUsername(username);
+    return user !== null;
   }
 
-  return createUserPromise;
-}
+  async function authUser({
+    username,
+    password,
+  }: {
+    username: string;
+    password: string;
+  }): Promise<{
+    userData: { username: string };
+    authed: boolean;
+    accessToken: string;
+    refreshToken: string;
+  }> {
+    const user = await userRepo.findByUsername(username);
 
-function verifyRefreshToken(
-  refreshToken: string
-): Promise<{ isVerified: boolean; isValid: boolean }> {
-  return new Promise((resolve, reject) => {
-    let isValid = false;
-    let isVerified = false;
+    if (!user) {
+      throw new Error("user_not_found");
+    }
 
-    jwt.verify(
-      refreshToken,
+    if (!user.password) {
+      throw new Error("My Bad ;)");
+    }
+
+    const passwordMatch = await compare(password, user.password);
+
+    if (!passwordMatch) {
+      throw new Error("Password incorrect");
+    }
+
+    const refreshToken = await signToken(
+      { userId: user.id },
       user_refresh_auth_key,
-      (err, decodedPayload: any) => {
-        if (!err) {
-          isVerified = true;
-
-          UserModel.findById(decodedPayload.userId, "refreshTokens").then(
-            (userDoc) => {
-              if (userDoc?.refreshTokens.includes(refreshToken)) isValid = true;
-
-              resolve({ isVerified, isValid });
-            },
-            (err) => {
-              console.log(err);
-              reject(err);
-            }
-          );
-        } else {
-          console.log(err);
-          resolve({ isVerified, isValid });
-        }
-      }
+      { algorithm: "HS256" }
     );
-  });
+
+    await userRepo.addRefreshToken(user.id, refreshToken);
+
+    const accessToken = await signToken({ userId: user.id }, user_auth_key, {
+      algorithm: "HS256",
+    });
+
+    if (process.env.NODE_ENV === "development") {
+      console.log({ user, passwordMatch, accessToken, refreshToken });
+    }
+
+    return {
+      userData: { username: user.username },
+      authed: true,
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  async function getAccessToken({
+    refreshToken,
+  }: {
+    refreshToken: string;
+  }): Promise<{ accessToken: string }> {
+    const decoded = await verifyToken(refreshToken, user_refresh_auth_key);
+
+    const user = await userRepo.findById(decoded.userId);
+
+    if (!user) {
+      throw new Error("No user with this _id");
+    }
+
+    if (!user.refreshTokens.includes(refreshToken)) {
+      throw new Error("invalidated");
+    }
+
+    const accessToken = await signToken({ userId: user.id }, user_auth_key, {
+      algorithm: "HS256",
+      expiresIn: "10m",
+    });
+
+    return { accessToken };
+  }
+
+  async function createUser({
+    username,
+    password,
+  }: {
+    username: string;
+    password: string;
+  }): Promise<{ username: string }> {
+    const userExists = await doesUsernameExist({ username });
+
+    if (userExists) {
+      throw new Error("username_unavailable");
+    }
+
+    const generatedHash = await hash(password, 10);
+
+    const user = await userRepo.create({ username, password: generatedHash });
+
+    if (process.env.NODE_ENV === "development") {
+      console.log(
+        `createUser called time: ${new Date(Date.now()).toISOString()}`
+      );
+    }
+
+    return { username: user.username };
+  }
+
+  function verifyRefreshToken(
+    refreshToken: string
+  ): Promise<{ isVerified: boolean; isValid: boolean }> {
+    return new Promise((resolve, reject) => {
+      jwt.verify(refreshToken, user_refresh_auth_key, (err, decoded) => {
+        if (err) {
+          resolve({ isVerified: false, isValid: false });
+          return;
+        }
+
+        if (!decoded || typeof decoded === "string") {
+          resolve({ isVerified: true, isValid: false });
+          return;
+        }
+
+        const userId = decoded.userId;
+
+        userRepo.findById(userId).then(
+          (user) => {
+            const isValid = !!user?.refreshTokens.includes(refreshToken);
+            resolve({ isVerified: true, isValid });
+          },
+          (dbErr) => reject(dbErr)
+        );
+      });
+    });
+  }
+
+  async function logoutService(
+    userId: string,
+    refreshToken: string
+  ): Promise<boolean> {
+    await userRepo.removeRefreshToken(userId, refreshToken);
+    return true;
+  }
+
+  return {
+    createUser,
+    authUser,
+    getAccessToken,
+    logoutService,
+    verifyRefreshToken,
+  };
 }
 
-function logoutService(userId: string, refreshToken: string): Promise<boolean> {
-  return new Promise((logoutResolve, logoutReject) => {
-    UserModel.findById(userId).then(
-      (userDoc) => {
-        if (userDoc) {
-          userDoc.refreshTokens = userDoc.refreshTokens.filter((eachToken) => {
-            return refreshToken != eachToken;
-          });
-
-          userDoc.save().then(
-            () => {
-              logoutResolve(true);
-            },
-            (err) => {
-              logoutReject(err);
-            }
-          );
-        } else {
-          logoutReject(new Error("no_matching_user"));
-        }
-      },
-      (err) => {
-        logoutReject(err);
-      }
-    );
-  });
-}
-
-export {
-  createUser,
-  authUser,
-  getAccessToken,
-  logoutService,
-  verifyRefreshToken,
-};
+export { createAuthService };
