@@ -1,167 +1,105 @@
-import { ObjectId } from "mongoose";
-import { NoteModel } from "../noteManager/nm.model";
-import { FolderModel } from "./fm.model";
+import type {
+  Folder,
+  FolderUpdate,
+  IFolderRepository,
+} from "./folder.repository.interface";
+import type { INoteRepository } from "../noteManager/note.repository.interface";
+import type { FolderJson } from "./types";
 
-// create folder
-// read folders
-// update folder
-// delete folder
-
-function createFolder({
-  ownerId,
-  folderName,
-}: {
-  ownerId: string;
-  folderName: string;
-}): Promise<{ folderId: string }> {
-  return new Promise((createFolderResolve, createFolderReject) => {
-    // ensure no folder with this foldername is owned by a user of this userid
-
-    FolderModel.findOne({ folderName, ownerId }).then(
-      (folderDoc) => {
-        if (!folderDoc) {
-          // create folder
-
-          new FolderModel({ ownerId, folderName }).save().then(
-            (folderDoc) => {
-              createFolderResolve({ folderId: folderDoc._id.toString() });
-              // console.log("got here though ?")
-            },
-            (err) => {
-              // mongoose error
-              createFolderReject(err);
-            }
-          );
-        } else {
-          createFolderReject(
-            new Error("A folder Already exists with this folder name")
-          );
-        }
-      },
-      (err) => {
-        createFolderReject(err);
-      }
-    );
-  });
+function toFolderJson(folder: Folder): FolderJson {
+  return {
+    _id: folder.id,
+    ownerId: folder.ownerId,
+    folderName: folder.folderName,
+    creationDate: folder.creationDate,
+    lastOpenedDate: folder.lastOpenedDate,
+    lastModifiedDate: folder.lastModifiedDate,
+    isPublic: folder.isPublic,
+  };
 }
 
-//get folders by ownerId
-function readFolders({ ownerId }: { ownerId: string }): Promise<any> {
-  return new Promise((readFoldersResolve, readFoldersReject) => {
-    FolderModel.find({ ownerId }).then(
-      (folderDocs) => {
-        if (folderDocs.length == 0) {
-          new FolderModel({ ownerId, folderName: "Default" })
-            .save()
-            .then((onlyFolderDoc) => {
-              readFoldersResolve([onlyFolderDoc]);
-            });
-        } else {
-          readFoldersResolve(folderDocs);
-        }
-      },
-      (err) => {
-        readFoldersReject(err);
-      }
-    );
-  });
-}
+function createFolderService(
+  folderRepo: IFolderRepository,
+  noteRepo: INoteRepository
+) {
+  async function createFolder({
+    ownerId,
+    folderName,
+  }: {
+    ownerId: string;
+    folderName: string;
+  }): Promise<{ folderId: string }> {
+    const existing = await folderRepo.findByOwnerAndName(ownerId, folderName);
 
-// partially tested and seams to work fine.
-//this services gets an array of folder Docs and loop through each calculating each folder's number of child notes.
-// it returns the original array plus a new key>value of size: number of notes counted
-async function countNotesByFolderIds(folderDocs: Array<any>) {
-  const output: Array<any> = [];
+    if (existing) {
+      throw new Error("A folder Already exists with this folder name");
+    }
 
-  for (let i = 0; i < folderDocs.length; i++) {
-    await NoteModel.countDocuments({ folderId: folderDocs[i]._id }).then(
-      (noteCount) => {
-        output.push({ ...folderDocs[i].toObject(), size: noteCount });
-      }
-    );
+    const folder = await folderRepo.create({ ownerId, folderName });
+
+    return { folderId: folder.id };
   }
 
-  return output;
-}
+  async function readFolders({
+    ownerId,
+  }: {
+    ownerId: string;
+  }): Promise<FolderJson[]> {
+    const folders = await folderRepo.findByOwner(ownerId);
 
-//update folder
-function updateFolder(
-  folderId: string,
-  folderUpdateOptions: {
-    folderName?: string;
-    lastModifiedDate?: Date;
-    lastOpenedDate?: Date;
-    isPublic?: boolean;
+    if (folders.length === 0) {
+      const defaultFolder = await folderRepo.create({
+        ownerId,
+        folderName: "Default",
+      });
+      return [toFolderJson(defaultFolder)];
+    }
+
+    return folders.map(toFolderJson);
   }
-): Promise<boolean> {
-  return new Promise((updateFolderResolve, updateFolderReject) => {
-    //
-    FolderModel.findByIdAndUpdate(folderId, { ...folderUpdateOptions }).then(
-      (folderDoc) => {
-        if (folderDoc) {
-          updateFolderResolve(true);
-        } else
-          updateFolderReject(
-            new Error("Folder with provided id doesn't exist ")
-          );
-      },
-      (err) => {
-        updateFolderReject(err);
-      }
-    );
-  });
+
+  async function countNotesByFolderIds(
+    folderDocs: FolderJson[]
+  ): Promise<FolderJson[]> {
+    const folderIds = folderDocs.map((folder) => folder._id);
+    const counts = await noteRepo.countByFolderIds(folderIds);
+
+    return folderDocs.map((folder) => ({
+      ...folder,
+      size: counts.get(folder._id) ?? 0,
+    }));
+  }
+
+  async function updateFolder(
+    folderId: string,
+    folderUpdateOptions: FolderUpdate
+  ): Promise<boolean> {
+    const updated = await folderRepo.update(folderId, folderUpdateOptions);
+
+    if (!updated) {
+      throw new Error("Folder with provided id doesn't exist ");
+    }
+
+    return true;
+  }
+
+  async function deleteFolder(folderId: string): Promise<boolean> {
+    const deleted = await folderRepo.delete(folderId);
+
+    if (!deleted) {
+      throw new Error("folder_does_not_exist");
+    }
+
+    return true;
+  }
+
+  return {
+    createFolder,
+    readFolders,
+    countNotesByFolderIds,
+    updateFolder,
+    deleteFolder,
+  };
 }
 
-//delete folderById
-function deleteFolder(folderId: string): Promise<boolean> {
-  return new Promise((deleteFolderResolve, deleteFolderReject) => {
-    FolderModel.findById(folderId).then(
-      (folderDoc) => {
-        if (folderDoc) {
-          folderDoc.deleteOne().then(
-            (deleteResult) => {
-              deleteFolderResolve(deleteResult.acknowledged);
-            },
-            (err) => {
-              deleteFolderReject(err);
-            }
-          );
-        } else {
-          deleteFolderReject(new Error("folder_does_not_exist"));
-        }
-      },
-      (err) => {
-        deleteFolderReject(err);
-      }
-    );
-    FolderModel.findByIdAndDelete(folderId).then(
-      (folderDoc) => {
-        deleteFolderResolve(true);
-      },
-      (err) => {
-        deleteFolderReject(err);
-      }
-    );
-  });
-}
-
-function isFolderPublic(folderId: string): Promise<boolean> {
-  return new Promise((resolveFolderIsPublic, rejectFolderIsPublic) => {
-    FolderModel.findById(folderId).then((foundFolderDoc) => {
-      if (foundFolderDoc) {
-        resolveFolderIsPublic(foundFolderDoc.isPublic);
-      } else {
-        rejectFolderIsPublic(new Error("folder inexistent."));
-      }
-    });
-  });
-}
-
-export {
-  createFolder,
-  readFolders,
-  countNotesByFolderIds,
-  updateFolder,
-  deleteFolder,
-  isFolderPublic,
-};
+export { createFolderService };
