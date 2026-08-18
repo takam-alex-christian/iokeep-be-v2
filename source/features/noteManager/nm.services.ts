@@ -1,130 +1,112 @@
-import { NoteModel, RawNoteDocType } from "./nm.model";
+import type {
+  INoteRepository,
+  Note,
+  NoteUpdate,
+} from "./note.repository.interface";
+import type { IFolderRepository } from "../folderManager/folder.repository.interface";
+import type { NoteJson, NoteSummaryJson } from "./types";
 
-import { CreateNoteJsonResponse } from "./types";
-
-//create note service
-//read notes
-//read note editorState
-//update note
-//delete note
-
-function createNote(
-  folderId: string,
-  editorState: string,
-  description: Array<string>
-): Promise<CreateNoteJsonResponse["data"]> {
-  return new Promise((createNoteResolve, createNoteReject) => {
-    console.log(description);
-
-    new NoteModel({ folderId, editorState, description: description })
-      .save()
-      .then(
-        (noteDoc) => {
-          const noteDocObject = noteDoc.toObject();
-          //@ts-ignore
-          delete noteDocObject["editorState"];
-          createNoteResolve({ ...noteDocObject, _id: noteDoc.id });
-        },
-        (err): void => {
-          createNoteReject(err);
-        }
-      );
-  });
+function toNoteJson(note: Note): NoteJson {
+  return {
+    _id: note.id,
+    folderId: note.folderId,
+    isPublic: note.isPublic,
+    editorState: note.editorState,
+    description: note.description,
+    creationDate: note.creationDate,
+    lastOpenedDate: note.lastOpenedDate,
+    lastModifiedDate: note.lastModifiedDate,
+  };
 }
 
-function readNotes(folderId: string): Promise<Array<any>> {
-  return new Promise((readNotesResolve, readNotesReject) => {
-    //the below implementation should be optimize to fetch only description field
-    NoteModel.find({ folderId }).then(
-      (notes) => {
-        readNotesResolve(notes);
-      },
-      (err) => {
-        readNotesReject(err);
-      }
-    );
-  });
+function toNoteSummary(note: Note): NoteSummaryJson {
+  return {
+    _id: note.id,
+    folderId: note.folderId,
+    isPublic: note.isPublic,
+    description: note.description,
+    creationDate: note.creationDate,
+    lastOpenedDate: note.lastOpenedDate,
+    lastModifiedDate: note.lastModifiedDate,
+  };
 }
 
-function readNote(noteId: string): Promise<any> {
-  //returns editorState string
-  //
-  return new Promise((readNoteRsolve, readNoteReject) => {
-    NoteModel.findById(noteId).then(
-      (noteDoc) => {
-        //should omit description field in the future
-        if (noteDoc) {
-          readNoteRsolve(noteDoc);
-        } else {
-          readNoteReject(new Error("inexistent noteId"));
-        }
-      },
-      (err) => {
-        readNoteReject(err);
-      }
-    );
-  });
+function createNoteService(
+  noteRepo: INoteRepository,
+  folderRepo: IFolderRepository
+) {
+  async function createNote(
+    folderId: string,
+    editorState: string,
+    description: string[]
+  ): Promise<NoteSummaryJson> {
+    const note = await noteRepo.create({ folderId, editorState, description });
+    return toNoteSummary(note);
+  }
+
+  async function readNotes(folderId: string): Promise<NoteJson[]> {
+    const notes = await noteRepo.findByFolder(folderId);
+    return notes.map(toNoteJson);
+  }
+
+  async function readNote(noteId: string): Promise<NoteJson> {
+    const note = await noteRepo.findById(noteId);
+
+    if (!note) {
+      throw new Error("inexistent noteId");
+    }
+
+    return toNoteJson(note);
+  }
+
+  async function updateNote(
+    noteId: string,
+    noteData: NoteUpdate
+  ): Promise<boolean> {
+    const update: NoteUpdate = { lastModifiedDate: new Date() };
+
+    if (noteData.editorState !== undefined) update.editorState = noteData.editorState;
+    if (noteData.description !== undefined) update.description = noteData.description;
+    if (noteData.isPublic !== undefined) update.isPublic = noteData.isPublic;
+    if (noteData.folderId !== undefined) update.folderId = noteData.folderId;
+
+    const updated = await noteRepo.update(noteId, update);
+
+    if (!updated) {
+      throw new Error("no note exist with this noteId");
+    }
+
+    return true;
+  }
+
+  async function deleteNote(noteId: string): Promise<boolean> {
+    const deleted = await noteRepo.delete(noteId);
+
+    if (!deleted) {
+      throw new Error("inexistent note id");
+    }
+
+    return true;
+  }
+
+  async function isFolderPublic(folderId: string): Promise<boolean> {
+    const folder = await folderRepo.findById(folderId);
+
+    if (!folder) {
+      throw new Error("folder inexistent.");
+    }
+
+    return folder.isPublic;
+  }
+
+  return {
+    createNote,
+    readNotes,
+    readNote,
+    updateNote,
+    deleteNote,
+    isFolderPublic,
+  };
 }
 
-//function to update editorState
-function updateNote(
-  noteDocProps: Partial<Omit<RawNoteDocType, "_id">> & { _id: string }
-): Promise<boolean> {
-  return new Promise((updateNoteResolve, updateNoteReject) => {
-    NoteModel.findById(noteDocProps._id).then(
-      (noteDoc) => {
-        if (noteDoc) {
-          // if ()
-          if (noteDocProps.editorState)
-            noteDoc.editorState = noteDocProps.editorState;
-          noteDoc.lastModifiedDate = new Date();
-
-          if (noteDocProps.description)
-            noteDoc.description = noteDocProps.description;
-          if (noteDocProps.isPublic)
-            noteDoc.isPublic = noteDocProps.isPublic
-              ? noteDocProps.isPublic
-              : noteDoc.isPublic;
-
-          if (noteDocProps.folderId) noteDoc.folderId = noteDocProps.folderId;
-
-          noteDoc.save().then(
-            () => {
-              updateNoteResolve(true);
-            },
-            (err) => {
-              updateNoteReject(err);
-            }
-          );
-        } else {
-          updateNoteReject(new Error("no note exist with this noteId"));
-        }
-      },
-      (err) => {
-        updateNoteReject(err);
-      }
-    );
-  });
-}
-
-function deleteNote(noteId: string): Promise<boolean> {
-  return new Promise((deleteNoteResolve, deleteNoteReject) => {
-    NoteModel.findById(noteId).then((noteDoc) => {
-      if (noteDoc) {
-        //we can proceed to delete noteDoc
-        noteDoc.deleteOne().then(
-          (deleteResult) => {
-            deleteNoteResolve(deleteResult.acknowledged);
-          },
-          (err) => {
-            deleteNoteReject(err);
-          }
-        );
-      } else {
-        deleteNoteReject(new Error("inexistent note id"));
-      }
-    });
-  });
-}
-
-export { createNote, readNotes, readNote, updateNote, deleteNote };
+export { createNoteService };

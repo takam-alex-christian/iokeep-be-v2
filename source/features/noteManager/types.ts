@@ -1,17 +1,24 @@
-import { RawNoteDocType } from "./nm.model";
+type NoteJson = {
+  _id: string;
+  folderId: string;
+  isPublic: boolean;
+  editorState: string;
+  description: string[];
+  creationDate: Date;
+  lastOpenedDate: Date;
+  lastModifiedDate: Date;
+};
+
+type NoteSummaryJson = Omit<NoteJson, "editorState">;
 
 type CreateNoteJsonResponse = {
   success: boolean;
-  data: Partial<Omit<RawNoteDocType, "_id" | "editorState">> & {
-    _id: string;
-    editorState?: string;
-  };
+  data: NoteSummaryJson | null;
   error: null | { message: string };
   timeStamp: number;
 };
 
 type GenericNoteJsonResponse = {
-  //patch & delete response
   success: boolean;
   info: string;
   error: null | { message: string };
@@ -19,28 +26,18 @@ type GenericNoteJsonResponse = {
 };
 
 type SingleNoteJsonResponse = {
-  //get one note
-  data: null | {
-    _id: string;
-    editorState: string;
-    creationDate: string;
-    lastModified: string;
-  };
+  data: NoteJson | null;
   error: null | { message: string };
   timeStamp: number;
 };
 
-type MultiNoteJsonResponse = Array<{
-  _id: string;
-  editorState: string;
-  creationDate: string;
-  lastModified: string;
-  description: Array<string>;
-}>;
+type MultiNoteJsonResponse = NoteJson[];
 
 export type {
   CreateNoteJsonResponse,
   GenericNoteJsonResponse,
   SingleNoteJsonResponse,
   MultiNoteJsonResponse,
+  NoteJson,
+  NoteSummaryJson,
 };
