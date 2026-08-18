@@ -1,13 +1,14 @@
 
-import dotenv from 'dotenv'
+import dotenv from "dotenv";
 
-dotenv.config()
+dotenv.config();
 
+const port = process.env.PORT || 4000;
+const database_url =
+  process.env.DATABASE_URL ||
+  "postgresql://postgres:postgres@localhost:5432/iokeepv2?schema=public";
 
-const port = process.env.PORT || 4000
-const mongodb_uri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/iokeepv2dev?"
+const user_auth_key = process.env.USER_AUTH_KEY || "test_auth_key";
+const user_refresh_auth_key = process.env.USER_REFRESH_AUTH_KEY || "test_refresh_key";
 
-const user_auth_key = process.env.USER_AUTH_KEY || "test_auth_key"
-const user_refresh_auth_key = process.env.USER_REFRESH_AUTH_KEY || "test_refresh_key"
-
-export {port, mongodb_uri, user_auth_key, user_refresh_auth_key}
+export { port, database_url, user_auth_key, user_refresh_auth_key };

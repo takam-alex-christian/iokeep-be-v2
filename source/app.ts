@@ -1,53 +1,48 @@
 
-import express, { Application, Request, Response} from "express"
+import express, { Application, Request, Response } from "express";
 
 import bodyParser from "body-parser";
-import cookieParser from "cookie-parser"
+import cookieParser from "cookie-parser";
 
-
-import connectDB from "./config/db"
+import { connectDatabase } from "./db";
 
 // import features
-import { auth } from "./features/userAuthentication"
+import { auth } from "./features/userAuthentication";
 
 import { folderManager } from "./features/folderManager";
 
 import { noteManager } from "./features/noteManager";
 
-//init express app
+// init express app
 
-const expressApp: Application = express()
+const expressApp: Application = express();
 
+// connect db
+connectDatabase();
 
-//connect db
-connectDB();
+// application/x-www-form-urlencoded
+expressApp.use(bodyParser.urlencoded({ extended: false }));
 
-//application/x-www-form-urlencoded
-expressApp.use(bodyParser.urlencoded({extended: false}))
+// parse application/json
+expressApp.use(bodyParser.json());
 
-//parse application/json
-expressApp.use(bodyParser.json())
+// cookie parser
+expressApp.use(cookieParser());
 
-//cookie parser
-expressApp.use(cookieParser())
+// use features routers
+expressApp.use("/auth", auth);
 
-//use features routers
-expressApp.use("/auth", auth)
+expressApp.use("/folders", folderManager);
 
-expressApp.use("/folders",folderManager )
+expressApp.use("/notes", noteManager);
 
-expressApp.use("/notes", noteManager)
+// handle for non implemented routes and methods
+expressApp.get("*", (req: Request, res: Response) => {
+  res.sendStatus(404);
+});
 
+expressApp.all("*", (req: Request, res: Response) => {
+  res.sendStatus(405);
+});
 
-//handle for non implemented routes and methods
-expressApp.get("*", (req: Request, res: Response)=>{
-    res.sendStatus(404)
-})
-
-expressApp.all("*", (req: Request, res: Response)=>{
-    res.sendStatus(405)
-})
-
-
-
-export default expressApp
+export default expressApp;
