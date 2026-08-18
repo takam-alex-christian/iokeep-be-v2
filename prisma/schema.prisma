@@ -1,0 +1,48 @@
+// IOKEEP backend - Prisma schema (PostgreSQL)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String   @id @default(uuid())
+  username      String   @unique
+  password      String
+  refreshTokens String[]
+  creationDate  DateTime @default(now())
+
+  folders Folder[]
+}
+
+model Folder {
+  id               String   @id @default(uuid())
+  ownerId          String
+  folderName       String
+  creationDate     DateTime @default(now())
+  lastOpenedDate   DateTime @default(now())
+  lastModifiedDate DateTime @default(now())
+  isPublic         Boolean  @default(false)
+
+  owner User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  notes Note[]
+
+  @@unique([ownerId, folderName])
+}
+
+model Note {
+  id               String   @id @default(uuid())
+  folderId         String
+  isPublic         Boolean  @default(false)
+  editorState      String
+  description      String[]
+  creationDate     DateTime @default(now())
+  lastOpenedDate   DateTime @default(now())
+  lastModifiedDate DateTime @default(now())
+
+  folder Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+}
