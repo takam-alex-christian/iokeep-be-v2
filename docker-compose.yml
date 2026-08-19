@@ -1,0 +1,49 @@
+# Production stack for the iokeep-be-v2 API.
+#
+# All configuration lives HERE — no .env files. Before deploying, replace
+# every placeholder below:
+#
+#   DATABASE_URL          - placeholder; update once PostgreSQL is self-hosted
+#                           (see the commented-out `db` service below)
+#   USER_AUTH_KEY         - generate with: openssl rand -hex 32
+#   USER_REFRESH_AUTH_KEY - generate with: openssl rand -hex 32
+#
+# Database schema: this repo has no committed migrations yet. Create them once
+# with `npx prisma migrate dev --name init` against your database and commit
+# prisma/migrations/, then apply in CI / deploy step with:
+#   npx prisma migrate deploy
+
+services:
+  api:
+    build:
+      context: .
+    image: iokeep-be:latest
+    container_name: iokeep-be
+    restart: unless-stopped
+    init: true # tini as PID 1 so SIGTERM reaches node cleanly
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      # Placeholder — replace with the real self-hosted PostgreSQL URL.
+      # If you enable the `db` service below, this works as-is once the
+      # password is set (replace CHANGE_ME in both places).
+      DATABASE_URL: "postgresql://postgres:CHANGE_ME@db:5432/iokeepv2?schema=public"
+      USER_AUTH_KEY: "CHANGE_ME"
+      USER_REFRESH_AUTH_KEY: "CHANGE_ME"
+
+  # Self-hosted PostgreSQL — uncomment to run it alongside the API.
+  # db:
+  #   image: postgres:16
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: CHANGE_ME
+  #     POSTGRES_DB: iokeepv2
+  #   volumes:
+  #     - pg_data:/var/lib/postgresql/data
+  #   # ports: ["5432:5432"] # uncomment to reach the DB from the host
+
+# volumes:
+#   pg_data:
