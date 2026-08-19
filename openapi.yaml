@@ -1,0 +1,891 @@
+openapi: 3.0.3
+info:
+  title: IOKEEP Backend API
+  version: 3.1.0
+  license:
+    name: ISC
+  description: |
+    Notes / Folders / Users CRUD + JWT auth API (PostgreSQL + Prisma backend).
+
+    Authentication is **cookie-based**. `POST /auth/login` sets two HttpOnly cookies:
+
+    - `access_token`  — 10 minute cookie lifetime
+    - `refresh_token` — 30 day cookie lifetime
+
+    The route guard (`checkAccessToken`) requires **both** cookies on protected
+    non-GET requests. `GET` requests on folders/notes are also reachable
+    unauthenticated for public resources.
+
+    Import this file into Postman: **Import → File → openapi.yaml**.
+servers:
+  - url: http://localhost:4000
+    description: Local / default (PORT env var)
+tags:
+  - name: auth
+    description: Users, login, JWT tokens
+  - name: folders
+    description: Folder CRUD
+  - name: notes
+    description: Note CRUD
+  - name: health
+    description: Service health
+
+security:
+  - cookieAuth: []
+
+paths:
+  /auth/signup:
+    post:
+      tags: [auth]
+      summary: Create a new user account
+      description: |
+        No auth required. Passwords are bcrypt-hashed server-side.
+        Duplicate usernames return HTTP 200 with `success: false` and
+        `error.message = "username_unavailable"` (quirk — no non-200 status).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  example: johndoe
+                password:
+                  type: string
+                  example: secret123
+      responses:
+        "200":
+          description: User created (or `username_unavailable` error variant)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserAuthJsonResponse"
+              example:
+                success: true
+                userData: { username: johndoe }
+                error: null
+        "400":
+          description: username and/or password missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserAuthJsonResponse"
+              example:
+                success: false
+                userData: null
+                error: { message: "Bad Request! username and or password not provided" }
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserAuthJsonResponse"
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Authenticate and set auth cookies
+      description: |
+        On success sets `access_token` and `refresh_token` cookies.
+        Quirk: all failure cases (wrong password, unknown user, missing fields)
+        also return HTTP 200 with `success: false` and an `error.message`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  example: johndoe
+                password:
+                  type: string
+                  example: secret123
+      responses:
+        "200":
+          description: Login success (or failure variant with success=false)
+          headers:
+            Set-Cookie:
+              description: access_token and refresh_token (HttpOnly)
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserAuthJsonResponse"
+              example:
+                success: true
+                userData: { username: johndoe }
+                error: null
+
+  /auth/refresh_token:
+    post:
+      tags: [auth]
+      summary: Verify a refresh token is valid AND still stored (not invalidated by logout)
+      security: []
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          description: "Bearer <refresh-token>"
+          schema:
+            type: string
+          example: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        "200":
+          description: 'Verification result (info: "Token authenticated" | "Token Invalidated" | "")'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthJsonResponse"
+              example:
+                success: true
+                info: Token authenticated
+                error: null
+                timeStamp: 1724001234567
+        "400":
+          description: Authorization header missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthJsonResponse"
+
+  /auth/logout:
+    patch:
+      tags: [auth]
+      summary: Invalidate the current refresh token and clear both cookies
+      description: Requires valid `access_token` AND `refresh_token` cookies.
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Logged out; cookies cleared (or error variants, still 200)
+          headers:
+            Set-Cookie:
+              description: Cleared access_token and refresh_token
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthJsonResponse"
+              example:
+                success: true
+                info: ""
+                error: null
+                timeStamp: 1724001234567
+        "401":
+          description: Missing cookies (guard)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuardErrorResponse"
+        "500":
+          description: Invalid access token (guard)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuardErrorResponse"
+
+  /auth/access_token:
+    post:
+      tags: [auth]
+      summary: Check whether the current access_token cookie is valid
+      security: []
+      description: Reads the `access_token` cookie.
+      responses:
+        "200":
+          description: Token verified (true) or invalid (false)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  verified:
+                    type: boolean
+              example:
+                verified: true
+        "400":
+          description: No access_token cookie
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifyAccessTokenErrorResponse"
+    get:
+      tags: [auth]
+      summary: Mint a new access_token from the refresh_token cookie
+      security: []
+      description: |
+        Reads the `refresh_token` cookie; on success sets a NEW `access_token`
+        cookie. Quirk: invalid/expired tokens return HTTP 200 with
+        `success: false` and `error.message`.
+      responses:
+        "200":
+          description: New access token generated (or failure variant, still 200)
+          headers:
+            Set-Cookie:
+              description: New access_token (HttpOnly, 10 min)
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthJsonResponse"
+              example:
+                success: true
+                info: New access token generated
+                error: null
+                timeStamp: 1724001234567
+        "403":
+          description: No refresh_token cookie
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthJsonResponse"
+
+  /folders:
+    post:
+      tags: [folders]
+      summary: Create a folder owned by the authenticated user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [folderName]
+              properties:
+                folderName:
+                  type: string
+                  example: Work
+      responses:
+        "201":
+          description: Folder created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateFolderJsonResponse"
+              example:
+                success: true
+                info: Folder created successfully!
+                error: null
+                data: { folderId: 4d8f0a2b-1c3e-4f5a-9b6d-7e8f0a1b2c3d }
+                timeStamp: 1724001234567
+        "400":
+          description: folderName missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateFolderJsonResponse"
+        "401":
+          description: Missing cookies (guard)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuardErrorResponse"
+        "500":
+          description: Duplicate folder name per owner, or server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateFolderJsonResponse"
+    get:
+      tags: [folders]
+      summary: List folders owned by the current user (with note counts)
+      description: |
+        Each folder includes `size` (number of child notes). Authenticated users
+        with no folders get a "Default" folder created. Unauthenticated access
+        is allowed by the guard but fails (500) — the owner FK cannot be null.
+      security: []
+      responses:
+        "200":
+          description: Folder list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FolderJson"
+              example:
+                - _id: 4d8f0a2b-1c3e-4f5a-9b6d-7e8f0a1b2c3d
+                  ownerId: 9a7b6c5d-4e3f-4a2b-9c1d-0e9f8a7b6c5d
+                  folderName: Work
+                  creationDate: "2024-08-18T10:00:00.000Z"
+                  lastOpenedDate: "2024-08-18T10:00:00.000Z"
+                  lastModifiedDate: "2024-08-18T10:00:00.000Z"
+                  isPublic: false
+                  size: 3
+        "500":
+          description: Server error (empty array body)
+
+  /folders/{folderId}:
+    patch:
+      tags: [folders]
+      summary: Update fields of a folder
+      parameters:
+        - $ref: "#/components/parameters/folderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [folderObject]
+              properties:
+                folderObject:
+                  type: object
+                  properties:
+                    folderName:
+                      type: string
+                    lastModifiedDate:
+                      type: string
+                      format: date-time
+                    lastOpenedDate:
+                      type: string
+                      format: date-time
+                    isPublic:
+                      type: boolean
+                  example:
+                    folderName: Personal
+                    isPublic: true
+      responses:
+        "200":
+          description: Folder updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericFolderJsonResponse"
+              example:
+                success: true
+                error: null
+                timeStamp: 1724001234567
+        "400":
+          description: folderObject missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericFolderJsonResponse"
+        "401":
+          description: Missing cookies (guard)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuardErrorResponse"
+        "500":
+          description: Folder does not exist or server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericFolderJsonResponse"
+    delete:
+      tags: [folders]
+      summary: Delete a folder by id (cascades to its notes)
+      parameters:
+        - $ref: "#/components/parameters/folderId"
+      responses:
+        "200":
+          description: Folder deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericFolderJsonResponse"
+              example:
+                success: true
+                error: null
+                timeStamp: 1724001234567
+        "401":
+          description: Missing cookies (guard)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuardErrorResponse"
+        "500":
+          description: Folder does not exist (folder_does_not_exist)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericFolderJsonResponse"
+
+  /notes:
+    post:
+      tags: [notes]
+      summary: Create a note inside a folder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [folderId, editorState, description]
+              properties:
+                folderId:
+                  type: string
+                  example: 4d8f0a2b-1c3e-4f5a-9b6d-7e8f0a1b2c3d
+                editorState:
+                  type: string
+                  example: "<p>Meeting notes</p>"
+                description:
+                  type: array
+                  items:
+                    type: string
+                  example: [work, standup]
+      responses:
+        "201":
+          description: Note created (editorState omitted from response)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateNoteJsonResponse"
+              example:
+                success: true
+                data:
+                  _id: 1f2e3d4c-5b6a-4f7e-8c9d-0e1f2a3b4c5d
+                  folderId: 4d8f0a2b-1c3e-4f5a-9b6d-7e8f0a1b2c3d
+                  isPublic: false
+                  description: [work, standup]
+                  creationDate: "2024-08-18T11:00:00.000Z"
+                  lastOpenedDate: "2024-08-18T11:00:00.000Z"
+                  lastModifiedDate: "2024-08-18T11:00:00.000Z"
+                error: null
+                timeStamp: 1724001234567
+        "400":
+          description: editorState / folderId / description missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateNoteJsonResponse"
+        "401":
+          description: Missing cookies (guard)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuardErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateNoteJsonResponse"
+    get:
+      tags: [notes]
+      summary: List all notes in a folder
+      description: |
+        Requires `folderId` query param. Unauthenticated requests are only
+        served when the folder is `isPublic: true` (otherwise 401 with an empty
+        array body). Unauthenticated + nonexistent folderId hangs (known bug).
+      security: []
+      parameters:
+        - name: folderId
+          in: query
+          required: true
+          schema:
+            type: string
+          example: 4d8f0a2b-1c3e-4f5a-9b6d-7e8f0a1b2c3d
+      responses:
+        "200":
+          description: Note list (full note docs, editorState included)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NoteJson"
+        "400":
+          description: folderId query param missing (empty array body)
+        "401":
+          description: Unauthenticated and folder not public (empty array body)
+        "500":
+          description: Server error (empty array body)
+
+  /notes/{noteId}:
+    get:
+      tags: [notes]
+      summary: Fetch a single note including editorState
+      description: |
+        Access granted if ANY of: note isPublic, requester authenticated, or
+        parent folder isPublic.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/noteId"
+      responses:
+        "200":
+          description: Note found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleNoteJsonResponse"
+        "401":
+          description: No access to this resource
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleNoteJsonResponse"
+        "500":
+          description: Note does not exist (inexistent noteId)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleNoteJsonResponse"
+    patch:
+      tags: [notes]
+      summary: Update fields of a note
+      description: Always refreshes lastModifiedDate server-side.
+      parameters:
+        - $ref: "#/components/parameters/noteId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [noteData]
+              properties:
+                noteData:
+                  type: object
+                  properties:
+                    editorState:
+                      type: string
+                    description:
+                      type: array
+                      items:
+                        type: string
+                    isPublic:
+                      type: boolean
+                    folderId:
+                      type: string
+                  example:
+                    editorState: "<p>Updated notes</p>"
+                    isPublic: true
+      responses:
+        "200":
+          description: Note updated (or failure variant with success=false, still 200)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericNoteJsonResponse"
+              example:
+                success: true
+                info: Note updated Successfully!
+                error: null
+                timeStamp: 1724001234567
+        "400":
+          description: noteId param missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericNoteJsonResponse"
+        "401":
+          description: Missing cookies (guard)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuardErrorResponse"
+        "500":
+          description: Note does not exist or server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericNoteJsonResponse"
+    delete:
+      tags: [notes]
+      summary: Delete a note by id
+      parameters:
+        - $ref: "#/components/parameters/noteId"
+      responses:
+        "200":
+          description: Note deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericNoteJsonResponse"
+              example:
+                success: true
+                info: ""
+                error: null
+                timeStamp: 1724001234567
+        "401":
+          description: Missing cookies (guard)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuardErrorResponse"
+        "500":
+          description: Note does not exist (inexistent note id)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericNoteJsonResponse"
+
+  /health:
+    get:
+      tags: [health]
+      summary: Service health probe
+      security: []
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  service:
+                    type: string
+              example:
+                status: ok
+                service: iokeep-backend-service
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+      description: |
+        HttpOnly cookie set by POST /auth/login.
+        NOTE: the guard also requires the refresh_token cookie on protected
+        non-GET requests. In Postman, both cookies arrive automatically when
+        you run /auth/login first (cookie jar); if not, disable the cookie jar
+        and add `Cookie: access_token=<jwt>; refresh_token=<jwt>` as a header.
+
+  parameters:
+    folderId:
+      name: folderId
+      in: path
+      required: true
+      description: Folder id (UUID)
+      schema:
+        type: string
+      example: 4d8f0a2b-1c3e-4f5a-9b6d-7e8f0a1b2c3d
+    noteId:
+      name: noteId
+      in: path
+      required: true
+      description: Note id (UUID)
+      schema:
+        type: string
+      example: 1f2e3d4c-5b6a-4f7e-8c9d-0e1f2a3b4c5d
+
+  schemas:
+    ErrorMessage:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    AuthJsonResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        info:
+          type: string
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorMessage"
+          type: object
+          nullable: true
+        timeStamp:
+          type: integer
+          format: int64
+          description: Unix epoch milliseconds
+
+    UserAuthJsonResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        userData:
+          type: object
+          nullable: true
+          properties:
+            username:
+              type: string
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorMessage"
+          type: object
+          nullable: true
+
+    GuardErrorResponse:
+      type: object
+      properties:
+        error:
+          type: boolean
+        message:
+          type: string
+
+    VerifyAccessTokenErrorResponse:
+      type: object
+      properties:
+        error:
+          type: boolean
+        errorMessage:
+          type: string
+
+    FolderJson:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: Folder id (UUID)
+        ownerId:
+          type: string
+        folderName:
+          type: string
+        creationDate:
+          type: string
+          format: date-time
+        lastOpenedDate:
+          type: string
+          format: date-time
+        lastModifiedDate:
+          type: string
+          format: date-time
+        isPublic:
+          type: boolean
+        size:
+          type: integer
+          description: Number of notes in this folder (GET /folders only)
+
+    CreateFolderJsonResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        info:
+          type: string
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorMessage"
+          type: object
+          nullable: true
+        data:
+          type: object
+          nullable: true
+          properties:
+            folderId:
+              type: string
+        timeStamp:
+          type: integer
+          format: int64
+
+    GenericFolderJsonResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorMessage"
+          type: object
+          nullable: true
+        timeStamp:
+          type: integer
+          format: int64
+
+    NoteJson:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: Note id (UUID)
+        folderId:
+          type: string
+        isPublic:
+          type: boolean
+        editorState:
+          type: string
+        description:
+          type: array
+          items:
+            type: string
+        creationDate:
+          type: string
+          format: date-time
+        lastOpenedDate:
+          type: string
+          format: date-time
+        lastModifiedDate:
+          type: string
+          format: date-time
+
+    CreateNoteJsonResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          nullable: true
+          properties:
+            _id:
+              type: string
+            folderId:
+              type: string
+            isPublic:
+              type: boolean
+            description:
+              type: array
+              items:
+                type: string
+            creationDate:
+              type: string
+              format: date-time
+            lastOpenedDate:
+              type: string
+              format: date-time
+            lastModifiedDate:
+              type: string
+              format: date-time
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorMessage"
+          type: object
+          nullable: true
+        timeStamp:
+          type: integer
+          format: int64
+
+    SingleNoteJsonResponse:
+      type: object
+      properties:
+        data:
+          allOf:
+            - $ref: "#/components/schemas/NoteJson"
+          type: object
+          nullable: true
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorMessage"
+          type: object
+          nullable: true
+        timeStamp:
+          type: integer
+          format: int64
+
+    GenericNoteJsonResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        info:
+          type: string
+        error:
+          allOf:
+            - $ref: "#/components/schemas/ErrorMessage"
+          type: object
+          nullable: true
+        timeStamp:
+          type: integer
+          format: int64
