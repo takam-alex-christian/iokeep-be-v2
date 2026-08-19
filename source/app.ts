@@ -36,6 +36,11 @@ expressApp.use("/folders", folderManager);
 
 expressApp.use("/notes", noteManager);
 
+// health path (must be registered before the catch-all handlers)
+expressApp.get("/health", function (req: Request, res: Response) {
+  return res.json({ status: "ok", service: "iokeep-backend-service" });
+});
+
 // handle for non implemented routes and methods
 expressApp.get("*", (req: Request, res: Response) => {
   res.sendStatus(404);
