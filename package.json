@@ -7,7 +7,9 @@
     "dev": "NODE_ENV=development nodemon ./server.ts",
     "build": "npx tsc",
     "start": "NODE_ENV=production sudo pm2 start ./dist/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --runInBand",
+    "test:api": "jest tests/ --runInBand",
+    "db:push": "prisma db push"
   },
   "keywords": [],
   "author": "",
